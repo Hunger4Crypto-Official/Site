@@ -1,20 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkRehype from "remark-rehype";
-import rehypeStringify from "rehype-stringify";
 import type { Article, Section } from "./types";
 import { mdToHtml } from "./markdown";
-
 
 const CONTENT_DIR = path.join(process.cwd(), "web", "content", "mega_article");
 
 function ensureContentDir() {
-  if (!fs.existsSync(CONTENT_DIR)) {
-    // allow build to succeed even if content is missing (empty list)
-    return [];
-  }
+  if (!fs.existsSync(CONTENT_DIR)) return [];
   return fs.readdirSync(CONTENT_DIR);
 }
 
