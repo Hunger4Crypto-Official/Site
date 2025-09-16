@@ -1,5 +1,6 @@
 // web/pages/api/og.ts
 /* eslint-disable react/jsx-key */
+import React from "react";
 import { ImageResponse } from "next/og";
 import { getArticleBySlug } from "../../lib/content";
 
