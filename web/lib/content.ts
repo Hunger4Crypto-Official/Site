@@ -1,3 +1,4 @@
+// web/lib/content.ts
 import fs from "node:fs";
 import path from "node:path";
 import type { Article, Section } from "./types";
