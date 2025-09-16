@@ -2,7 +2,7 @@ export type Section = {
   heading?: string;
   /** HTML string produced from bodyMarkdown; optional for resilience */
   body?: string;
-  /** Source Markdown (optional in data files) */
+  /** Source Markdown (optional in data files; not exposed to UI) */
   bodyMarkdown?: string;
 };
 
