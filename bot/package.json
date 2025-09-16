@@ -1,0 +1,20 @@
+{
+  "name": "@h4c/bot",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1",
+    "mongoose": "^8.5.1",
+    "node-fetch": "^3.3.2",
+    "pino": "^9.2.0",
+    "pino-pretty": "^11.2.2",
+    "zod": "^3.23.8"
+  }
+}
