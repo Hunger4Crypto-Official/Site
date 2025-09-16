@@ -1,7 +1,15 @@
-import { remark } from 'remark';
-import html from 'remark-html';
+// web/lib/markdown.ts
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkRehype from "remark-rehype";
+import rehypeStringify from "rehype-stringify";
 
-export async function mdToHtml(md: string) {
-  const file = await remark().use(html, { sanitize: false }).process(md || '');
+/** Convert Markdown to HTML string (no sanitization because content is trusted) */
+export async function mdToHtml(md: string): Promise<string> {
+  const file = await unified()
+    .use(remarkParse)
+    .use(remarkRehype)
+    .use(rehypeStringify)
+    .process(md ?? "");
   return String(file);
 }
