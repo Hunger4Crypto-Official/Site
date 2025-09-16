@@ -5,6 +5,8 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
 import type { Article, Section } from "./types";
+import { mdToHtml } from "./markdown";
+
 
 const CONTENT_DIR = path.join(process.cwd(), "web", "content", "mega_article");
 
@@ -14,15 +16,6 @@ function ensureContentDir() {
     return [];
   }
   return fs.readdirSync(CONTENT_DIR);
-}
-
-async function mdToHtml(md: string): Promise<string> {
-  const file = await unified()
-    .use(remarkParse)
-    .use(remarkRehype)
-    .use(rehypeStringify)
-    .process(md);
-  return String(file);
 }
 
 export function listArticleFiles(): string[] {
