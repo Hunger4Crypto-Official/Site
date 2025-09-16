@@ -4,17 +4,16 @@ import { getAllArticleSlugs } from "../lib/content";
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://example.com";
 
-// API route that emits a sitemap.xml document.
-// Render/Next will serve this at /sitemap.xml
 export default async function handler(_req: NextApiRequest, res: NextApiResponse) {
-  const slugs = getAllArticleSlugs(); // sync; just reads filenames
+  // sync read of filenames → no Promise misuse
+  const slugs = getAllArticleSlugs();
 
   const urls = [
     `<url><loc>${BASE}/</loc><priority>1.0</priority></url>`,
     `<url><loc>${BASE}/articles</loc><priority>0.8</priority></url>`,
     ...slugs.map(
       (s) => `<url><loc>${BASE}/articles/${s}</loc><priority>0.6</priority></url>`
-    )
+    ),
   ].join("");
 
   const xml =
