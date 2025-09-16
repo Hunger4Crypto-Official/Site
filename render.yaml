@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: h4c-web
+    env: node
+    rootDir: web
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    envVars:
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+      - key: ALGO_USD_FALLBACK
+        sync: false
+    autoDeploy: true
+  - type: web
+    name: h4c-bot
+    env: node
+    rootDir: bot
+    buildCommand: "npm install"
+    startCommand: "npm run start"
+    healthCheckPath: "/health"
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
+      - key: ADMIN_JWT_SECRET
+        sync: false
+      - key: NODELY_INDEXER_URL
+        sync: false
+      - key: TINYMAN_API
+        sync: false
+      - key: ROLE_CITIZEN_ID
+        sync: false
+      - key: ROLE_HODL_SHRIMP_ID
+        sync: false
+      - key: ROLE_HODL_CRAB_ID
+        sync: false
+      - key: ROLE_HODL_FISH_ID
+        sync: false
+      - key: ROLE_HODL_DOLPHIN_ID
+        sync: false
+      - key: ROLE_HODL_SHARK_ID
+        sync: false
+      - key: ROLE_HODL_WHALE_ID
+        sync: false
+      - key: ROLE_HODL_TITAN_ID
+        sync: false
