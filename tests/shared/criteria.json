@@ -1,0 +1,16 @@
+{
+  "assets": {
+    "memo": { "asa_id": 885835936, "decimals": 6 }
+  },
+  "badges": {
+    "hodl": {
+      "shrimp": 100,
+      "crab": 1000,
+      "fish": 10000,
+      "dolphin": 50000,
+      "shark": 50000,
+      "whale": 200000,
+      "titan": 1000000
+    }
+  }
+}
