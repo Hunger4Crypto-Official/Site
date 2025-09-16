@@ -4,9 +4,17 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
-import { Article, Section } from "./types";
+import type { Article, Section } from "./types";
 
 const CONTENT_DIR = path.join(process.cwd(), "web", "content", "mega_article");
+
+function ensureContentDir() {
+  if (!fs.existsSync(CONTENT_DIR)) {
+    // allow build to succeed even if content is missing (empty list)
+    return [];
+  }
+  return fs.readdirSync(CONTENT_DIR);
+}
 
 async function mdToHtml(md: string): Promise<string> {
   const file = await unified()
@@ -18,7 +26,11 @@ async function mdToHtml(md: string): Promise<string> {
 }
 
 export function listArticleFiles(): string[] {
-  return fs.readdirSync(CONTENT_DIR).filter((f) => f.endsWith(".json"));
+  return ensureContentDir().filter((f) => f.endsWith(".json"));
+}
+
+export function getAllArticleSlugs(): string[] {
+  return listArticleFiles().map((f) => f.replace(/\.json$/, ""));
 }
 
 export function readArticleJson(slug: string): Article | null {
@@ -34,15 +46,13 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
 
   const sections: Section[] = [];
   for (const sec of raw.sections ?? []) {
-    // Prefer existing HTML body; otherwise derive from Markdown; otherwise empty string.
     let body = sec.body;
     if (!body && sec.bodyMarkdown) {
       body = await mdToHtml(sec.bodyMarkdown);
     }
     sections.push({
       heading: sec.heading?.trim(),
-      body: body ?? "",
-      // Do not expose bodyMarkdown to the component tree
+      body: body ?? ""
     });
   }
 
@@ -52,18 +62,16 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
     description: raw.description,
     coverImage: raw.coverImage,
     updatedAt: raw.updatedAt,
-    sections,
+    sections
   };
 }
 
 export async function getAllArticles(): Promise<Article[]> {
-  const files = listArticleFiles();
-  const slugs = files.map((f) => f.replace(/\.json$/, ""));
+  const slugs = getAllArticleSlugs();
   const out: Article[] = [];
   for (const slug of slugs) {
     const a = await getArticleBySlug(slug);
     if (a) out.push(a);
   }
-  // keep natural order or sort by title/updatedAt if you prefer
   return out;
 }
