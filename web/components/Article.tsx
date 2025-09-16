@@ -1,5 +1,5 @@
 import React from "react";
-import { Section } from "../lib/types";
+import type { Section } from "../lib/types";
 
 type Props = {
   title: string;
@@ -27,7 +27,9 @@ export default function Article({ title, description, coverImage, sections }: Pr
           <ul className="list-disc pl-5">
             {toc.map((t) => (
               <li key={t.i}>
-                <a href={`#s-${t.i}`} className="hover:underline">{t.h}</a>
+                <a href={`#s-${t.i}`} className="hover:underline">
+                  {t.h}
+                </a>
               </li>
             ))}
           </ul>
