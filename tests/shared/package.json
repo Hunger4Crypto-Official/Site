@@ -4,6 +4,14 @@
   "type": "module",
   "main": "index.js",
   "exports": {
-    "./criteria.json": "./criteria.json"
+    ".": "./index.js",
+    "./criteria.json": "./criteria.json",
+    "./constants": "./constants.js",
+    "./utils": "./utils.js",
+    "./types": "./types.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0"
   }
 }
