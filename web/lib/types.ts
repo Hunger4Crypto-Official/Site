@@ -1,4 +1,3 @@
-// web/lib/types.ts
 export type Section = {
   heading?: string;
   body?: string;
@@ -11,5 +10,5 @@ export type Article = {
   description?: string;
   coverImage?: string | null;
   updatedAt?: string | null;
-  sections?: Section[];
+  sections?: Section[];  // keep optional for resilience
 };
