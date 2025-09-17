@@ -1,6 +1,9 @@
 {
   "assets": {
-    "memo": { "asa_id": 885835936, "decimals": 6 }
+    "memo": { 
+      "asa_id": 885835936, 
+      "decimals": 6 
+    }
   },
   "badges": {
     "hodl": {
