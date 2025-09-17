@@ -26,6 +26,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "3000"
+      # REQUIRED environment variables (these MUST be set in Render dashboard)
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL
@@ -36,11 +39,12 @@ services:
         sync: false
       - key: ADMIN_JWT_SECRET
         sync: false
+      - key: ALGORAND_NODE_URL
+        sync: false
+      # OPTIONAL but recommended environment variables
       - key: NODELY_INDEXER_URL
         sync: false
       - key: NODELY_INDEXER_API_KEY
-        sync: false
-      - key: ALGORAND_NODE_URL
         sync: false
       - key: TINYMAN_API
         value: "https://mainnet.analytics.tinyman.org/api/v1"
@@ -48,6 +52,7 @@ services:
         sync: false
       - key: SOLANA_RPC_URL
         sync: false
+      # Configuration with default values
       - key: ALG_BALANCE_TTL_MS
         value: "60000"
       - key: BUCKETS
