@@ -108,3 +108,44 @@ export async function getAllArticles(): Promise<Article[]> {
         out.push(a);
         console.log(`Successfully added article: ${slug}`);
       } else {
+        console.warn(`Failed to process article: ${slug}`);
+      }
+    } catch (error) {
+      console.error(`Error processing article ${slug}:`, error);
+      // Continue with other articles rather than failing completely
+      continue;
+    }
+  }
+  
+  console.log(`Successfully processed ${out.length}/${slugs.length} articles`);
+  return out;
+}
+
+// Helper function to get article metadata without full processing (useful for listings)
+export function getAllArticleMetadata(): Array<Pick<Article, "slug" | "title" | "description">> {
+  const slugs = getAllArticleSlugs();
+  const metadata: Array<Pick<Article, "slug" | "title" | "description">> = [];
+  
+  for (const slug of slugs) {
+    try {
+      const raw = readArticleJson(slug);
+      if (raw) {
+        metadata.push({
+          slug: raw.slug ?? slug,
+          title: raw.title ?? `Article: ${slug}`,
+          description: raw.description ?? ""
+        });
+      }
+    } catch (error) {
+      console.error(`Error reading metadata for ${slug}:`, error);
+      // Add fallback metadata
+      metadata.push({
+        slug,
+        title: `Article: ${slug}`,
+        description: ""
+      });
+    }
+  }
+  
+  return metadata;
+}
