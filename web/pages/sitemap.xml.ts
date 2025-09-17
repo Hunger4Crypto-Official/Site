@@ -1,18 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAllArticleSlugs } from "@/lib/content";
+import { getAllArticleSlugs } from "../lib/content"; // relative import
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://example.com";
 
 export default async function handler(_req: NextApiRequest, res: NextApiResponse) {
   try {
-    const slugs = getAllArticleSlugs();
+    const slugs = getAllArticleSlugs(); // sync list, server-only
 
     const urls = [
       `<url><loc>${BASE}/</loc><priority>1.0</priority></url>`,
       `<url><loc>${BASE}/articles</loc><priority>0.8</priority></url>`,
-      ...slugs.map(
-        (s) => `<url><loc>${BASE}/articles/${s}</loc><priority>0.6</priority></url>`
-      )
+      ...slugs.map((s) => `<url><loc>${BASE}/articles/${s}</loc><priority>0.6</priority></url>`)
     ].join("");
 
     const xml =
