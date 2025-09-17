@@ -4,7 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "build": "echo 'No build step needed for bot'",
+    "lint": "eslint src/ --ext .js",
+    "lint:fix": "eslint src/ --ext .js --fix",
+    "type-check": "echo 'Bot is JavaScript - no type checking needed'",
+    "test": "node --test test/*.test.js",
+    "test:watch": "node --test --watch test/*.test.js"
   },
   "dependencies": {
     "discord.js": "^14.16.3",
@@ -15,6 +21,15 @@
     "node-fetch": "^3.3.2",
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.2",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@h4c/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-standard": "^17.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
