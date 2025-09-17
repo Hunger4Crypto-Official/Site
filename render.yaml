@@ -11,6 +11,7 @@ services:
       - key: ALGO_USD_FALLBACK
         sync: false
     autoDeploy: true
+    
   - type: web
     name: h4c-bot
     env: node
@@ -31,7 +32,15 @@ services:
         sync: false
       - key: NODELY_INDEXER_URL
         sync: false
+      - key: NODELY_INDEXER_API_KEY
+        sync: false
+      - key: ALGORAND_NODE_URL
+        sync: false
       - key: TINYMAN_API
+        sync: false
+      - key: ETHEREUM_RPC_URL
+        sync: false
+      - key: SOLANA_RPC_URL
         sync: false
       - key: ROLE_CITIZEN_ID
         sync: false
@@ -49,3 +58,44 @@ services:
         sync: false
       - key: ROLE_HODL_TITAN_ID
         sync: false
+      - key: ALG_BALANCE_TTL_MS
+        sync: false
+      - key: BUCKETS
+        sync: false
+      - key: BUCKET_PERIOD_MIN
+        sync: false
+      - key: SCAN_CONCURRENCY
+        sync: false
+      - key: SCAN_SPACING_MS
+        sync: false
+      - key: GLOBAL_CALL_BUDGET_5M
+        sync: false
+      - key: RATE_LIMIT_WINDOW_MS
+        sync: false
+      - key: RATE_LIMIT_MAX_TOKENS
+        sync: false
+      - key: RATE_LIMIT_REFILL_PER_SEC
+        sync: false
+      - key: RATE_LIMIT_BURST
+        sync: false
+      - key: ADMIN_RATE_LIMIT_WINDOW_MS
+        sync: false
+      - key: ADMIN_RATE_LIMIT_MAX_TOKENS
+        sync: false
+      - key: ADMIN_RATE_LIMIT_REFILL_PER_SEC
+        sync: false
+      - key: ADMIN_RATE_LIMIT_BURST
+        sync: false
+      - key: ADMIN_IP_ALLOWLIST
+        sync: false
+      - key: ENABLE_TINYMAN
+        sync: false
+      - key: ENABLE_PACT
+        sync: false
+      - key: PACT_API_BASE
+        sync: false
+      - key: REP_V2_TTL_SECS
+        sync: false
+      - key: LP_SNAPSHOT_TTL_SECS
+        sync: false
+    autoDeploy: true
