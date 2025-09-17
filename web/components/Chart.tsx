@@ -1,73 +1,285 @@
 "use client";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, BarChart, Bar
+  AreaChart, Area, BarChart, Bar, ScatterChart, Scatter, RadarChart, 
+  PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart,
+  Cell, PieChart, Pie, Legend
 } from "recharts";
 
 type ChartProps = {
-  type: "line" | "area" | "bar";
+  type: "line" | "area" | "bar" | "scatter" | "radar" | "combo" | "pie" | "multi-line" | "stacked-area" | "combo-bar-line";
   title: string;
   subtitle?: string;
   data: any[];
   xKey?: string;
   yKey?: string;
+  series?: Array<{ key: string; name: string; color?: string }>;
+  colors?: string[];
 };
 
-export default function Chart({ type, title, subtitle, data, xKey = "year", yKey }: ChartProps) {
+const DEFAULT_COLORS = [
+  "#7DD3FC", "#F87171", "#34D399", "#FBBF24", "#A78BFA", 
+  "#FB7185", "#60A5FA", "#F472B6", "#10B981", "#F59E0B"
+];
+
+export default function Chart({ 
+  type, 
+  title, 
+  subtitle, 
+  data, 
+  xKey = "year", 
+  yKey,
+  series,
+  colors = DEFAULT_COLORS
+}: ChartProps) {
   const pickY = yKey || (data?.[0] ? Object.keys(data[0]).find(k => k !== xKey) : undefined);
 
-  const common = { data, margin: { top: 5, right: 30, left: 20, bottom: 5 } };
+  const common = { 
+    data, 
+    margin: { top: 20, right: 30, left: 20, bottom: 20 } 
+  };
+  
   const tooltipStyle = {
     backgroundColor: "#1F2937",
     border: "1px solid #374151",
-    borderRadius: "8px"
+    borderRadius: "8px",
+    color: "#E5E7EB"
   } as const;
 
-  const ChartImpl = () => {
-    if (!pickY) return null;
+  const gridColor = "#374151";
+  const axisColor = "#9CA3AF";
+
+  const renderChart = () => {
     switch (type) {
       case "line":
         return (
           <LineChart {...common}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey={xKey} stroke="#9CA3AF" />
-            <YAxis stroke="#9CA3AF" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <XAxis dataKey={xKey} stroke={axisColor} />
+            <YAxis stroke={axisColor} />
             <Tooltip contentStyle={tooltipStyle} />
-            <Line type="monotone" dataKey={pickY} stroke="#7DD3FC" strokeWidth={2} />
+            <Line 
+              type="monotone" 
+              dataKey={pickY} 
+              stroke={colors[0]} 
+              strokeWidth={2} 
+              dot={{ fill: colors[0], strokeWidth: 2, r: 4 }}
+            />
           </LineChart>
         );
+
+      case "multi-line":
+        return (
+          <LineChart {...common}>
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <XAxis dataKey={xKey} stroke={axisColor} />
+            <YAxis stroke={axisColor} />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend />
+            {series?.map((s, i) => (
+              <Line 
+                key={s.key}
+                type="monotone" 
+                dataKey={s.key}
+                name={s.name}
+                stroke={s.color || colors[i % colors.length]} 
+                strokeWidth={2}
+                dot={{ strokeWidth: 2, r: 3 }}
+              />
+            ))}
+          </LineChart>
+        );
+
       case "area":
         return (
           <AreaChart {...common}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey={xKey} stroke="#9CA3AF" />
-            <YAxis stroke="#9CA3AF" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <XAxis dataKey={xKey} stroke={axisColor} />
+            <YAxis stroke={axisColor} />
             <Tooltip contentStyle={tooltipStyle} />
-            <Area type="monotone" dataKey={pickY} stroke="#7DD3FC" fill="#7DD3FC" fillOpacity={0.3} />
+            <Area 
+              type="monotone" 
+              dataKey={pickY} 
+              stroke={colors[0]} 
+              fill={colors[0]} 
+              fillOpacity={0.3} 
+            />
           </AreaChart>
         );
+
+      case "stacked-area":
+        return (
+          <AreaChart {...common}>
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <XAxis dataKey={xKey} stroke={axisColor} />
+            <YAxis stroke={axisColor} />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend />
+            {series?.map((s, i) => (
+              <Area 
+                key={s.key}
+                type="monotone" 
+                dataKey={s.key}
+                name={s.name}
+                stackId="1"
+                stroke={s.color || colors[i % colors.length]} 
+                fill={s.color || colors[i % colors.length]}
+                fillOpacity={0.6}
+              />
+            ))}
+          </AreaChart>
+        );
+
       case "bar":
         return (
           <BarChart {...common}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey={xKey} stroke="#9CA3AF" />
-            <YAxis stroke="#9CA3AF" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <XAxis dataKey={xKey} stroke={axisColor} />
+            <YAxis stroke={axisColor} />
             <Tooltip contentStyle={tooltipStyle} />
-            <Bar dataKey={pickY} fill="#7DD3FC" />
+            <Bar dataKey={pickY} fill={colors[0]} />
           </BarChart>
         );
+
+      case "scatter":
+        return (
+          <ScatterChart {...common}>
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <XAxis 
+              type="number" 
+              dataKey={series?.[0]?.key || "fee"} 
+              stroke={axisColor}
+              name="X Value"
+            />
+            <YAxis 
+              type="number" 
+              dataKey={series?.[1]?.key || "speed"} 
+              stroke={axisColor}
+              name="Y Value"
+            />
+            <Tooltip 
+              contentStyle={tooltipStyle}
+              cursor={{ strokeDasharray: '3 3' }}
+            />
+            <Scatter 
+              dataKey={series?.[1]?.key || "speed"}
+              fill={colors[0]}
+            />
+          </ScatterChart>
+        );
+
+      case "radar":
+        return (
+          <RadarChart {...common} width={400} height={400}>
+            <PolarGrid stroke={gridColor} />
+            <PolarAngleAxis dataKey="metric" stroke={axisColor} />
+            <PolarRadiusAxis 
+              angle={90} 
+              domain={[0, 10]} 
+              stroke={axisColor}
+              fontSize={12}
+            />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend />
+            {series?.map((s, i) => (
+              <Radar
+                key={s.key}
+                name={s.name}
+                dataKey={s.key}
+                stroke={s.color || colors[i % colors.length]}
+                fill={s.color || colors[i % colors.length]}
+                fillOpacity={0.1}
+                strokeWidth={2}
+              />
+            ))}
+          </RadarChart>
+        );
+
+      case "combo":
+      case "combo-bar-line":
+        const barSeries = series?.filter(s => s.key.includes('bar') || s.key.includes('volume') || s.key.includes('supply')) || [];
+        const lineSeries = series?.filter(s => s.key.includes('line') || s.key.includes('price') || s.key.includes('velocity')) || [];
+        
+        return (
+          <ComposedChart {...common}>
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <XAxis dataKey={xKey} stroke={axisColor} />
+            <YAxis yAxisId="left" stroke={axisColor} />
+            <YAxis yAxisId="right" orientation="right" stroke={axisColor} />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend />
+            
+            {barSeries.map((s, i) => (
+              <Bar
+                key={`bar-${s.key}`}
+                yAxisId="left"
+                dataKey={s.key}
+                name={s.name}
+                fill={s.color || colors[i % colors.length]}
+              />
+            ))}
+            
+            {lineSeries.map((s, i) => (
+              <Line
+                key={`line-${s.key}`}
+                yAxisId="right"
+                type="monotone"
+                dataKey={s.key}
+                name={s.name}
+                stroke={s.color || colors[(i + barSeries.length) % colors.length]}
+                strokeWidth={2}
+                dot={{ strokeWidth: 2, r: 3 }}
+              />
+            ))}
+          </ComposedChart>
+        );
+
+      case "pie":
+        return (
+          <PieChart width={400} height={400}>
+            <Pie
+              data={data}
+              cx={200}
+              cy={200}
+              labelLine={false}
+              label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+              outerRadius={120}
+              fill="#8884d8"
+              dataKey={pickY || "value"}
+            >
+              {data.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={colors[index % colors.length]} 
+                />
+              ))}
+            </Pie>
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend />
+          </PieChart>
+        );
+
       default:
-        return null;
+        return (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-slate-400">Unsupported chart type: {type}</p>
+          </div>
+        );
     }
   };
 
   return (
     <div className="my-8 p-6 bg-slate-800/50 rounded-lg border border-slate-700">
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      {subtitle && <p className="text-slate-400 text-sm mb-4">{subtitle}</p>}
-      <div className="h-64">
+      <div className="mb-4">
+        <h3 className="text-xl font-semibold text-white">{title}</h3>
+        {subtitle && (
+          <p className="text-slate-400 text-sm mt-1">{subtitle}</p>
+        )}
+      </div>
+      
+      <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <ChartImpl />
+          {renderChart()}
         </ResponsiveContainer>
       </div>
     </div>
