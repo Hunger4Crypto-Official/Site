@@ -20,15 +20,22 @@ export function getAllArticleSlugs(): string[] {
 
 function readJson(filePath: string): any | null {
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  } catch {
+    console.log(`Reading JSON file: ${filePath}`);
+    const content = fs.readFileSync(filePath, "utf8");
+    console.log(`File size: ${content.length} characters`);
+    return JSON.parse(content);
+  } catch (error) {
+    console.error(`Failed to read JSON file ${filePath}:`, error);
     return null;
   }
 }
 
 export function readArticleJson(slug: string): Article | null {
   const p = path.join(CONTENT_DIR, `${slug}.json`);
-  if (!fs.existsSync(p)) return null;
+  if (!fs.existsSync(p)) {
+    console.log(`Article file not found: ${p}`);
+    return null;
+  }
   const raw = readJson(p);
   if (!raw) return null;
 
@@ -37,21 +44,44 @@ export function readArticleJson(slug: string): Article | null {
 }
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
+  console.log(`Processing article: ${slug}`);
+  
   const raw = readArticleJson(slug);
-  if (!raw) return null;
+  if (!raw) {
+    console.log(`Failed to read raw article: ${slug}`);
+    return null;
+  }
 
   const sections: Section[] = [];
-  for (const sec of raw.sections ?? []) {
-    // Accept body, content, or markdown
-    let body: string | undefined = sec.body ?? (sec as any).content;
-    if (!body && (sec as any).bodyMarkdown) {
-      body = await mdToHtml((sec as any).bodyMarkdown);
+  const rawSections = raw.sections ?? [];
+  console.log(`Processing ${rawSections.length} sections for ${slug}`);
+  
+  for (let i = 0; i < rawSections.length; i++) {
+    const sec = rawSections[i];
+    console.log(`Processing section ${i + 1}/${rawSections.length} for ${slug}`);
+    
+    try {
+      // Accept body, content, or markdown
+      let body: string | undefined = sec.body ?? (sec as any).content;
+      if (!body && (sec as any).bodyMarkdown) {
+        console.log(`Converting markdown for section ${i + 1} in ${slug}`);
+        body = await mdToHtml((sec as any).bodyMarkdown);
+      }
+      sections.push({
+        heading: sec.heading?.trim(),
+        body: body ?? ""
+      });
+    } catch (error) {
+      console.error(`Error processing section ${i + 1} in ${slug}:`, error);
+      // Continue with empty body rather than failing completely
+      sections.push({
+        heading: sec.heading?.trim(),
+        body: ""
+      });
     }
-    sections.push({
-      heading: sec.heading?.trim(),
-      body: body ?? ""
-    });
   }
+
+  console.log(`Successfully processed ${sections.length} sections for ${slug}`);
 
   return {
     slug: raw.slug ?? slug,
@@ -65,10 +95,16 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
 
 export async function getAllArticles(): Promise<Article[]> {
   const slugs = getAllArticleSlugs();
+  console.log(`Starting to process ${slugs.length} articles...`);
+  
   const out: Article[] = [];
-  for (const s of slugs) {
-    const a = await getArticleBySlug(s);
-    if (a) out.push(a);
-  }
-  return out;
-}
+  for (let i = 0; i < slugs.length; i++) {
+    const slug = slugs[i];
+    console.log(`Processing article ${i + 1}/${slugs.length}: ${slug}`);
+    
+    try {
+      const a = await getArticleBySlug(slug);
+      if (a) {
+        out.push(a);
+        console.log(`Successfully added article: ${slug}`);
+      } else {
