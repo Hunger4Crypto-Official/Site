@@ -41,7 +41,7 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
     title: a.title,
     description: a.description ?? "",
     coverImage: a.coverImage ?? null,
-    updatedAt: a.updatedAt ?? null,
+    updatedAt: a.updatedAt ?? null
   }));
   return { props: { articles }, revalidate: 86400 };
 };
