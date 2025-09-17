@@ -2,12 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   typescript: {
-    // Dangerously allow production builds to successfully complete even if your project has type errors
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    // Disable ESLint during builds
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {
