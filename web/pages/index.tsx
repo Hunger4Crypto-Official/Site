@@ -1,9 +1,12 @@
 import Head from "next/head";
 import Link from "next/link";
 import type { GetStaticProps } from "next";
+import dynamic from "next/dynamic";
 
 import { getAllArticles } from "../lib/content";
 import type { Article } from "../lib/types";
+
+const EmailSignup = dynamic(() => import("../components/EmailSignup"), { ssr: false });
 
 type Props = {
   articles: Array<Pick<Article, "slug" | "title" | "description" | "coverImage" | "updatedAt">>;
