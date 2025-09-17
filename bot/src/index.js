@@ -12,7 +12,12 @@ import { redis } from './utils/redisClient.js';
 import { startAutoAwards } from './cron/autoAwards.js';
 import { RoleManagementService } from './services/roleManagementService.js';
 import { AlgorandLeaderboardService } from './services/algorandLeaderboardService.js';
-import pkg from '../../package.json' assert { type: 'json' };
+
+// Get package info safely
+const pkg = {
+  name: "@h4c/bot",
+  version: process.env.npm_package_version || "1.0.0"
+};
 
 // Env sanity
 assertRequiredEnv([
