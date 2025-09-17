@@ -81,6 +81,12 @@ export default function HomePage({ articles }: Props) {
           <p className="text-slate-400 mb-6 max-w-2xl mx-auto">
             More than just articles - join a community with perks, games, NFTs, and exclusive access to the H4C ecosystem.
           </p>
+          
+          {/* Email Signup Component */}
+          <div className="max-w-md mx-auto mb-8">
+            <EmailSignup />
+          </div>
+          
           <div className="flex justify-center gap-4">
             <a 
               href="https://discord.gg/memocollective" 
