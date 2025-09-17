@@ -1,5 +1,9 @@
 {
   "name": "@h4c/shared",
   "version": "1.0.0",
-  "main": "index.js"
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    "./criteria.json": "./criteria.json"
+  }
 }
