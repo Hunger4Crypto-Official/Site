@@ -6,10 +6,14 @@ services:
     buildCommand: "npm install && npm run build"
     startCommand: "npm run start"
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: NEXT_PUBLIC_SITE_URL
-        sync: false
+        value: https://hunger4crypto.com
       - key: ALGO_USD_FALLBACK
-        sync: false
+        value: "0.20"
+      - key: PORT
+        value: "3001"
     autoDeploy: true
     
   - type: web
@@ -20,6 +24,8 @@ services:
     startCommand: "npm run start"
     healthCheckPath: "/health"
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL
@@ -37,65 +43,25 @@ services:
       - key: ALGORAND_NODE_URL
         sync: false
       - key: TINYMAN_API
-        sync: false
+        value: "https://mainnet.analytics.tinyman.org/api/v1"
       - key: ETHEREUM_RPC_URL
         sync: false
       - key: SOLANA_RPC_URL
         sync: false
-      - key: ROLE_CITIZEN_ID
-        sync: false
-      - key: ROLE_HODL_SHRIMP_ID
-        sync: false
-      - key: ROLE_HODL_CRAB_ID
-        sync: false
-      - key: ROLE_HODL_FISH_ID
-        sync: false
-      - key: ROLE_HODL_DOLPHIN_ID
-        sync: false
-      - key: ROLE_HODL_SHARK_ID
-        sync: false
-      - key: ROLE_HODL_WHALE_ID
-        sync: false
-      - key: ROLE_HODL_TITAN_ID
-        sync: false
       - key: ALG_BALANCE_TTL_MS
-        sync: false
+        value: "60000"
       - key: BUCKETS
-        sync: false
+        value: "10"
       - key: BUCKET_PERIOD_MIN
-        sync: false
+        value: "5"
       - key: SCAN_CONCURRENCY
-        sync: false
+        value: "3"
       - key: SCAN_SPACING_MS
-        sync: false
+        value: "1000"
       - key: GLOBAL_CALL_BUDGET_5M
-        sync: false
-      - key: RATE_LIMIT_WINDOW_MS
-        sync: false
-      - key: RATE_LIMIT_MAX_TOKENS
-        sync: false
-      - key: RATE_LIMIT_REFILL_PER_SEC
-        sync: false
-      - key: RATE_LIMIT_BURST
-        sync: false
-      - key: ADMIN_RATE_LIMIT_WINDOW_MS
-        sync: false
-      - key: ADMIN_RATE_LIMIT_MAX_TOKENS
-        sync: false
-      - key: ADMIN_RATE_LIMIT_REFILL_PER_SEC
-        sync: false
-      - key: ADMIN_RATE_LIMIT_BURST
-        sync: false
-      - key: ADMIN_IP_ALLOWLIST
-        sync: false
+        value: "300"
       - key: ENABLE_TINYMAN
-        sync: false
+        value: "true"
       - key: ENABLE_PACT
-        sync: false
-      - key: PACT_API_BASE
-        sync: false
-      - key: REP_V2_TTL_SECS
-        sync: false
-      - key: LP_SNAPSHOT_TTL_SECS
-        sync: false
+        value: "false"
     autoDeploy: true
