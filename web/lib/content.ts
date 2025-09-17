@@ -3,8 +3,8 @@ import path from "path";
 import type { Article, Section } from "./types";
 import { mdToHtml } from "./markdown";
 
-// Content lives in web/content/mega_article/*.json
-const CONTENT_DIR = path.join(process.cwd(), "web", "content", "mega_article");
+// Content lives in content/mega_article/*.json
+const CONTENT_DIR = path.join(process.cwd(), "content", "mega_article");
 
 function safeList(dir: string): string[] {
   return fs.existsSync(dir) ? fs.readdirSync(dir) : [];
