@@ -1,47 +1,66 @@
-// web/pages/index.tsx
-import type { GetStaticProps } from "next";
+import Head from "next/head";
 import Link from "next/link";
+import type { GetStaticProps } from "next";
 
-import { getAllArticles } from "../lib/content";
-import type { Article } from "../lib/types";
+import { getAllArticles } from "../../lib/content";
+import type { Article } from "../../lib/types";
 
 type Props = {
-  articles: Array<
+  articles: Array
     Pick<Article, "slug" | "title" | "description" | "coverImage" | "updatedAt">
   >;
 };
 
-export default function Home({ articles }: Props) {
+export default function ArticlesIndex({ articles }: Props) {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-4xl font-bold">H4C — Latest Articles</h1>
-      <ul className="space-y-6">
-        {articles.map((a) => (
-          <li key={a.slug} className="rounded-2xl border border-slate-700 p-4">
-            <Link href={`/articles/${a.slug}`} className="text-2xl font-semibold hover:underline">
-              {a.title}
-            </Link>
-            {a.description && <p className="mt-2 text-slate-300">{a.description}</p>}
-            {a.updatedAt && (
-              <p className="mt-1 text-sm text-slate-400">
-                Updated {new Date(a.updatedAt).toLocaleDateString()}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
-    </main>
+    <>
+      <Head>
+        <title>Articles | $MemO Collective</title>
+        <meta
+          name="description"
+          content="Educational articles about $MemO and the H4C ecosystem."
+        />
+      </Head>
+      <main className="mx-auto max-w-3xl px-4 py-8">
+        <h1 className="mb-6 text-4xl font-bold">Articles</h1>
+        <ul className="space-y-4">
+          {articles.map((a) => (
+            <li key={a.slug} className="rounded-2xl border border-slate-700 p-4">
+              <Link href={`/articles/${a.slug}`} className="block">
+                <h2 className="text-2xl font-semibold">{a.title}</h2>
+                {a.description && (
+                  <p className="mt-1 text-slate-400">{a.description}</p>
+                )}
+                <div className="mt-2 text-sm text-slate-500">
+                  Updated {a.updatedAt ? new Date(a.updatedAt).toLocaleDateString() : "—"}
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </main>
+    </>
   );
 }
 
 export const getStaticProps: GetStaticProps<Props> = async () => {
-  const arts = await getAllArticles();
-  const articles = arts.map((a) => ({
-    slug: a.slug,
-    title: a.title,
-    description: a.description ?? "",
-    coverImage: a.coverImage ?? null,
-    updatedAt: a.updatedAt ?? null
-  }));
-  return { props: { articles }, revalidate: 86400 };
+  console.log('Starting getStaticProps for articles index...');
+  
+  try {
+    const arts = await getAllArticles();
+    const articles = arts.map((a) => ({
+      slug: a.slug,
+      title: a.title,
+      description: a.description ?? "",
+      coverImage: a.coverImage ?? null,
+      updatedAt: a.updatedAt ?? null,
+    }));
+    
+    console.log(`Articles index: Successfully processed ${articles.length} articles`);
+    return { props: { articles }, revalidate: 60 * 60 * 24 };
+  } catch (error) {
+    console.error('Error in getStaticProps for articles index:', error);
+    // Return empty articles array rather than failing
+    return { props: { articles: [] }, revalidate: 60 * 60 * 24 };
+  }
 };
