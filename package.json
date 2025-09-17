@@ -5,13 +5,36 @@
   "scripts": {
     "install:all": "npm install && npm --prefix web install && npm --prefix bot install && npm --prefix shared install",
     "dev": "concurrently \"npm --prefix web run dev\" \"npm --prefix bot run dev\"",
-    "build": "npm --prefix web run build && npm --prefix bot run build",
+    "build": "npm --prefix shared run build && npm --prefix web run build && npm --prefix bot run build",
+    "start": "concurrently \"npm --prefix web run start\" \"npm --prefix bot run start\"",
     "seed:badges": "node scripts/seed_badges.js",
-    "lint": "node -e \"console.log('lint placeholder - add eslint if desired')\"",
-    "typecheck": "node -e \"console.log('typecheck placeholder - Next handles TS build')\"",
-    "test": "node tests/smoke.js && node tests/integration-award.js"
+    "lint": "npm --prefix web run lint && npm --prefix bot run lint",
+    "lint:fix": "npm --prefix web run lint -- --fix && npm --prefix bot run lint -- --fix",
+    "type-check": "npm --prefix web run type-check && npm --prefix bot run type-check",
+    "test": "node tests/smoke.js && node tests/integration-award.js",
+    "test:unit": "echo 'Add unit tests here'",
+    "test:integration": "node tests/integration-award.js",
+    "clean": "rm -rf web/.next web/node_modules bot/node_modules shared/node_modules node_modules",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,ts,tsx,json,md}\"",
+    "prepare": "husky install || true"
   },
   "devDependencies": {
-    "concurrently": "^9.0.0"
+    "concurrently": "^9.0.0",
+    "prettier": "^3.0.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "lint-staged": {
+    "*.{js,ts,tsx}": ["eslint --fix"],
+    "*.{js,ts,tsx,json,md}": ["prettier --write"]
   }
 }
