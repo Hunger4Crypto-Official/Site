@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ---- your site globals (keep or merge) ---- */
+/* your globals may follow */
 :root { --bg: #0a0a12; --fg: #e7e7f7; }
 html, body { background: var(--bg); color: var(--fg); }
 a { color: #7dd3fc; }
