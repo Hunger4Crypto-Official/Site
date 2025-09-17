@@ -1,9 +1,9 @@
-// web/pages/articles/index.tsx
+// web/pages/index.tsx
 import type { GetStaticProps } from "next";
 import Link from "next/link";
 
-import { getAllArticles } from "../../lib/content";
-import type { Article } from "../../lib/types";
+import { getAllArticles } from "../lib/content";
+import type { Article } from "../lib/types";
 
 type Props = {
   articles: Array<
@@ -11,10 +11,10 @@ type Props = {
   >;
 };
 
-export default function ArticlesIndex({ articles }: Props) {
+export default function Home({ articles }: Props) {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-4xl font-bold">Articles</h1>
+      <h1 className="mb-6 text-4xl font-bold">H4C — Latest Articles</h1>
       <ul className="space-y-6">
         {articles.map((a) => (
           <li key={a.slug} className="rounded-2xl border border-slate-700 p-4">
@@ -36,14 +36,12 @@ export default function ArticlesIndex({ articles }: Props) {
 
 export const getStaticProps: GetStaticProps<Props> = async () => {
   const arts = await getAllArticles();
-  // Only send fields the list needs
   const articles = arts.map((a) => ({
     slug: a.slug,
     title: a.title,
     description: a.description ?? "",
-    coverImage: a.coverImage,
+    coverImage: a.coverImage ?? null,
     updatedAt: a.updatedAt ?? null,
   }));
-
   return { props: { articles }, revalidate: 86400 };
 };
