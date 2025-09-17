@@ -1,9 +1,9 @@
-// web/lib/content.ts
-import fs from "node:fs";
-import path from "node:path";
+import fs from "fs";
+import path from "path";
 import type { Article, Section } from "./types";
 import { mdToHtml } from "./markdown";
 
+// Content lives in web/content/mega_article/*.json
 const CONTENT_DIR = path.join(process.cwd(), "web", "content", "mega_article");
 
 function safeList(dir: string): string[] {
@@ -32,8 +32,7 @@ export function readArticleJson(slug: string): Article | null {
   const raw = readJson(p);
   if (!raw) return null;
 
-  // Ensure a slug (prefer explicit, else derive from filename)
-  raw.slug = raw.slug ?? slug;
+  raw.slug = raw.slug ?? slug; // derive if missing
   return raw as Article;
 }
 
@@ -43,10 +42,10 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
 
   const sections: Section[] = [];
   for (const sec of raw.sections ?? []) {
-    // Accept 'body', 'content', or 'bodyMarkdown'
+    // Accept body, content, or markdown
     let body: string | undefined = sec.body ?? (sec as any).content;
-    if (!body && sec.bodyMarkdown) {
-      body = await mdToHtml(sec.bodyMarkdown);
+    if (!body && (sec as any).bodyMarkdown) {
+      body = await mdToHtml((sec as any).bodyMarkdown);
     }
     sections.push({
       heading: sec.heading?.trim(),
