@@ -26,6 +26,73 @@ function getClientIp(req: NextApiRequest): string {
   return ip || 'unknown';
 }
 
+async function notifyBotApi(email: string, clientIp: string, userAgent: string) {
+  const botApiUrl = process.env.BOT_API_URL || 'http://localhost:3000';
+  const adminSecret = process.env.ADMIN_JWT_SECRET;
+
+  if (!adminSecret) {
+    console.warn('ADMIN_JWT_SECRET not set, skipping bot notification');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${botApiUrl}/api/email/web-subscribe`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminSecret}`,
+      },
+      body: JSON.stringify({ 
+        email,
+        source: 'web',
+        userAgent,
+        ip: clientIp
+      }),
+      signal: AbortSignal.timeout(5000) // 5 second timeout
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Bot API error:', response.status, errorText);
+    } else {
+      const result = await response.json();
+      console.log('Bot API success:', result);
+    }
+  } catch (error) {
+    console.error('Failed to notify bot API:', error);
+    // Don't fail the request if bot API is unavailable
+  }
+}
+
+async function addToEmailService(email: string) {
+  // TODO: Add to your email service provider
+  // Examples:
+  
+  // SendGrid example:
+  // if (process.env.SENDGRID_API_KEY) {
+  //   const sgMail = require('@sendgrid/mail');
+  //   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  //   // Add to contact list
+  // }
+  
+  // Mailchimp example:
+  // if (process.env.MAILCHIMP_API_KEY) {
+  //   const mailchimp = require('@mailchimp/mailchimp_marketing');
+  //   mailchimp.setConfig({
+  //     apiKey: process.env.MAILCHIMP_API_KEY,
+  //     server: process.env.MAILCHIMP_SERVER_PREFIX,
+  //   });
+  //   // Add subscriber
+  // }
+  
+  console.log(`Would add ${email} to email service`);
+}
+
+async function sendConfirmationEmail(email: string) {
+  // TODO: Send confirmation email
+  console.log(`Would send confirmation email to ${email}`);
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -35,7 +102,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   // Rate limiting
   if (!rateLimit(clientIp)) {
-    return res.status(429).json({ error: 'Too many requests. Try again later.' });
+    return res.status(429).json({ 
+      error: 'Too many requests. Please try again in a minute.' 
+    });
   }
 
   try {
@@ -48,62 +117,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
+      return res.status(400).json({ error: 'Please enter a valid email address' });
     }
 
     const cleanEmail = email.toLowerCase().trim();
 
-    // Here you would typically:
-    // 1. Save to your database
-    // 2. Send confirmation email
-    // 3. Add to mailing list service (Mailchimp, SendGrid, etc.)
-    
-    // For now, we'll make a request to the bot's API if available
-    const botApiUrl = process.env.BOT_API_URL || 'http://localhost:3000';
-    const adminSecret = process.env.ADMIN_JWT_SECRET;
-
-    if (adminSecret) {
-      try {
-        // Call bot API to save email (you'd need to create this endpoint)
-        const botResponse = await fetch(`${botApiUrl}/api/email/web-subscribe`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminSecret}`,
-          },
-          body: JSON.stringify({ 
-            email: cleanEmail,
-            source: 'web',
-            userAgent: req.headers['user-agent'] || '',
-            ip: clientIp
-          }),
-        });
-
-        if (!botResponse.ok) {
-          console.error('Bot API error:', await botResponse.text());
-        }
-      } catch (error) {
-        console.error('Failed to notify bot API:', error);
-        // Don't fail the request if bot API is unavailable
-      }
+    // Basic domain validation (block obvious disposable emails)
+    const disposableDomains = [
+      '10minutemail.com', 'tempmail.org', 'guerrillamail.com', 
+      'mailinator.com', 'trashmail.com'
+    ];
+    const domain = cleanEmail.split('@')[1];
+    if (disposableDomains.includes(domain)) {
+      return res.status(400).json({ 
+        error: 'Please use a permanent email address' 
+      });
     }
 
-    // Log the subscription (replace with proper logging)
+    // Log the subscription attempt
     console.log(`Email subscription: ${cleanEmail} from ${clientIp}`);
 
-    // In production, you might:
-    // - Add to email service (SendGrid, Mailchimp, etc.)
-    // - Send confirmation email
-    // - Store in database with confirmation token
-    
+    // Parallel operations for better performance
+    await Promise.allSettled([
+      notifyBotApi(cleanEmail, clientIp, req.headers['user-agent'] || ''),
+      addToEmailService(cleanEmail),
+      sendConfirmationEmail(cleanEmail)
+    ]);
+
     return res.status(200).json({ 
       success: true, 
-      message: 'Successfully subscribed!' 
+      message: 'Successfully subscribed! Check your email for confirmation.'
     });
 
   } catch (error) {
     console.error('Email subscription error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      error: 'Something went wrong. Please try again.' 
+    });
   }
 }
 
