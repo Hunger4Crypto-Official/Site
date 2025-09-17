@@ -1,11 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+// web/pages/_app.tsx
+import type { AppProps } from "next/app";
+import "../styles.css"; // make sure this file exists at web/styles.css
 
-/* ---- your site globals (keep or merge) ---- */
-:root { --bg: #0a0a12; --fg: #e7e7f7; }
-html, body { background: var(--bg); color: var(--fg); }
-a { color: #7dd3fc; }
-.prose h1, .prose h2, .prose h3 { color: var(--fg); }
-.prose p { color: #bac2d6; }
-main { min-height: 100vh; }
+export default function App({ Component, pageProps }: AppProps) {
+  return <Component {...pageProps} />;
+}
