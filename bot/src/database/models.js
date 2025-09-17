@@ -1,15 +1,21 @@
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
-  discordId: { type: String, unique: true, index: true },
+  discordId: { type: String, unique: true, index: true, sparse: true }, // Make sparse for web-only users
   username: String,
   walletAddress: { type: String, index: true },   // Algorand
   walletVerified: { type: Boolean, default: false, index: true },
   ethAddress: { type: String, index: true },
   solAddress: { type: String, index: true },
   badges: [{ type: String }],
-  email: String,
-  emailCollectedAt: Date
+  email: { type: String, index: true, sparse: true },
+  emailCollectedAt: Date,
+  emailSources: [{
+    source: String, // 'discord', 'web', 'api', etc.
+    collectedAt: Date,
+    userAgent: String,
+    ip: String
+  }]
 }, { timestamps: true, collection: 'users' });
 
 userSchema.path('badges').validate(arr => !arr || (Array.isArray(arr) && new Set(arr).size === arr.length), 'Badges must be unique');
