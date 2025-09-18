@@ -3,19 +3,24 @@ services:
   - type: web
     name: h4c-web
     env: node
-    rootDir: web
     buildCommand: |
-      echo "=== Web Build ===" &&
-      node --version && npm --version &&
-      npm ci --only=production &&
+      echo "=== Installing root dependencies ===" &&
+      npm ci &&
+      echo "=== Installing web dependencies ===" &&
+      cd web &&
+      npm ci &&
+      echo "=== Building web app ===" &&
       npm run build &&
-      echo "=== Web Build Done ==="
-    startCommand: "npm run start"
+      echo "=== Web Build Complete ==="
+    startCommand: cd web && npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_SITE_URL
-        value: https://hunger4crypto.com
+        fromService:
+          type: web
+          name: h4c-web
+          property: host
       - key: ALGO_USD_FALLBACK
         value: "0.20"
     autoDeploy: true
@@ -24,18 +29,21 @@ services:
   - type: worker
     name: h4c-bot
     env: node
-    rootDir: bot
     buildCommand: |
-      echo "=== Bot Build ===" &&
-      node --version && npm --version &&
-      if [ -f package-lock.json ]; then echo Using npm ci && npm ci --only=production; else echo No lockfile, using npm install && npm install --omit=dev; fi &&
-      echo "=== Bot Build Done ==="
-    startCommand: "npm start"
+      echo "=== Installing root dependencies ===" &&
+      npm ci &&
+      echo "=== Installing bot dependencies ===" &&
+      cd bot &&
+      npm ci &&
+      echo "=== Bot Build Complete ==="
+    startCommand: cd bot && npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: LOG_LEVEL
         value: info
+      - key: ENABLE_HTTP
+        value: "false"
 
       # Secrets (provide in Render UI)
       - key: BOT_TOKEN
@@ -57,7 +65,7 @@ services:
       - key: SOLANA_RPC_URL
         sync: false
 
-      # Safe defaults / tuning (keep if used by code)
+      # Safe defaults / tuning
       - key: ALGORAND_NODE_URL
         value: "https://mainnet-api.algonode.cloud"
       - key: NODELY_INDEXER_URL
