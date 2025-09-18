@@ -1,7 +1,6 @@
 {
   "name": "h4c-monorepo",
   "private": true,
-  "workspaces": ["web", "bot", "shared"],
   "scripts": {
     "install:all": "npm install && npm --prefix web install && npm --prefix bot install && npm --prefix shared install",
     "dev": "concurrently \"npm --prefix web run dev\" \"npm --prefix bot run dev\"",
