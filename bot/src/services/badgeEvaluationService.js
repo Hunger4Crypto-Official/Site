@@ -1,6 +1,6 @@
 import { User, Badge } from '../database/models.js';
 import { algoClient } from '../utils/algorandClient.js';
-import { criteria } from '../../../shared/index.js';
+import { criteria } from '../../shared/criteria.js';
 import { RoleManagementService } from './roleManagementService.js';
 import { logger } from '../utils/logger.js';
 import { metrics } from '../middleware/metrics.js';
