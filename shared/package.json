@@ -2,16 +2,41 @@
   "name": "@h4c/shared",
   "version": "1.0.0",
   "type": "module",
+  "description": "Shared utilities and types for H4C monorepo",
   "main": "index.js",
   "exports": {
     ".": "./index.js",
-    "./criteria.json": "./criteria.json",
+    "./config": "./config/index.js",
+    "./security/*": "./security/*.js",
+    "./errors/*": "./errors/*.js",
+    "./cache/*": "./cache/*.js",
+    "./resilience/*": "./resilience/*.js",
+    "./database/*": "./database/*.js",
+    "./utils": "./utils/index.js",
     "./constants": "./constants.js",
-    "./utils": "./utils.js",
-    "./types": "./types.js"
+    "./criteria": "./criteria.js"
   },
-  "dependencies": {},
+  "scripts": {
+    "build": "echo \"Shared package build complete\"",
+    "test": "node --test test/*.test.js",
+    "test:watch": "node --test --watch test/*.test.js",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
+    "type-check": "echo \"Shared is JavaScript - no type checking needed\""
+  },
+  "dependencies": {
+    "zod": "^3.22.4",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.5.1",
+    "ioredis": "^5.4.1",
+    "pino": "^9.2.0",
+    "pino-pretty": "^11.2.2"
+  },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "eslint": "^8.57.0",
+    "eslint-config-standard": "^17.1.0"
+  },
+  "peerDependencies": {
+    "node": ">=18.18.0"
   }
 }
