@@ -1,0 +1,255 @@
+{
+  "version": "1.0",
+  "generated_at": "2025-08-19T00:00:00Z",
+  "items": [
+    {
+      "id": "foreword",
+      "title": "Foreword: Why Crypto, Why Now",
+      "emoji": "🎬",
+      "tags": ["overview", "onboarding", "tone"],
+      "est_read_min": 10,
+      "file": "../01-foreword/01-foreword.json",
+      "headings": [
+        "Welcome and House Rules",
+        "How to Read This Guide",
+        "What This Is and Is Not",
+        "The Buckazoids Story",
+        "Key Vocabulary You Will See Often"
+      ]
+    },
+    {
+      "id": "bitcoin",
+      "title": "Bitcoin: Proof-of-work, Halvings, and Digital Gold",
+      "emoji": "₿",
+      "tags": ["bitcoin", "pow", "monetary-policy", "history"],
+      "est_read_min": 35,
+      "file": "../02-bitcoin/02-bitcoin.json",
+      "headings": [
+        "The Spark That Ignited a Revolution",
+        "Genesis Block and the Hidden Message",
+        "Proof-of-work Basics",
+        "Miner Incentives and Security Budget",
+        "The Halving Cycles and Scarcity",
+        "Early Wild West and Exchange Era",
+        "Scaling Tensions and Second-layer Paths",
+        "Institutions, ETFs, and Custody",
+        "Energy Debates and Grid Innovation",
+        "Lightning in Practice",
+        "Critiques and Counterpoints",
+        "Where Bitcoin Could Go Next"
+      ]
+    },
+    {
+      "id": "ethereum",
+      "title": "Ethereum: World Computer, From Proof-of-work to Proof of Stake",
+      "emoji": "🧠",
+      "tags": ["ethereum", "pos", "smart-contracts", "defi", "nft"],
+      "est_read_min": 40,
+      "file": "../03-ethereum/03-ethereum.json",
+      "headings": [
+        "World Computer Vision",
+        "Accounts, Gas, and EVM",
+        "From Proof-of-work to Proof of Stake",
+        "Rollups and the Modular Stack",
+        "DeFi Summer and Composability",
+        "NFTs and Cultural Onchain Moments",
+        "MEV and Block Building",
+        "Security Considerations",
+        "Roadmap: Danksharding and Data Availability",
+        "Ethereum in a Multichain World"
+      ]
+    },
+    {
+      "id": "cardano",
+      "title": "Cardano: Peer-reviewed Path and Extended UTXO",
+      "emoji": "🔷",
+      "tags": ["cardano", "research", "eutxo", "governance"],
+      "est_read_min": 30,
+      "file": "../04-cardano/04-cardano.json",
+      "headings": [
+        "Phased Roadmap and Philosophy",
+        "Extended UTXO Model",
+        "Smart Contracts and Plutus",
+        "Staking and Pool Economics",
+        "Hydra and Scaling Paths",
+        "Onchain Identity and Education Pilots",
+        "Community Size and Voice",
+        "RWA and Voting Concepts",
+        "What Cardano Must Prove Next"
+      ]
+    },
+    {
+      "id": "algorand",
+      "title": "Algorand: Fast Finality, $MemO, and Real World Pace",
+      "emoji": "⚡",
+      "tags": ["algorand", "pos", "finality", "rwa"],
+      "est_read_min": 35,
+      "file": "../05-algorand/05-algorand.json",
+      "headings": [
+        "Pure Proof of Stake and Finality",
+        "ASA Design and Smart Signatures",
+        "Throughput and Fees",
+        "Government and Enterprise Pilots",
+        "Creator Economy and $MemO Notes",
+        "DRIP Culture and Collectibles",
+        "Security Model and Upgrades",
+        "Strengths and Tradeoffs",
+        "What Adoption Could Look Like"
+      ]
+    },
+    {
+      "id": "polkadot",
+      "title": "Polkadot: Shared Security and Parachain Design",
+      "emoji": "🕸️",
+      "tags": ["polkadot", "shared-security", "parachains"],
+      "est_read_min": 28,
+      "file": "../06-polkadot/06-polkadot.json",
+      "headings": [
+        "Relay Chain Basics",
+        "Parachains and Slots",
+        "XCMP and Interoperability",
+        "Staking and Nominators",
+        "Governance and OpenGov",
+        "DeFi, Identity, and Tooling",
+        "Challenges and Opportunities"
+      ]
+    },
+    {
+      "id": "solana",
+      "title": "Solana: High Throughput, DeFi Speed, and Degen Culture",
+      "emoji": "🔥",
+      "tags": ["solana", "throughput", "pump-fun", "nfts", "defi"],
+      "est_read_min": 38,
+      "file": "../07-sol/07-sol.json",
+      "headings": [
+        "Proof of History and Parallelism",
+        "Runtime and Account Model",
+        "DEX Speed and Fees",
+        "NFT Waves and Creator Energy",
+        "The SBF Era and Aftermath",
+        "Meme Season and pump.fun",
+        "Outages, Fixes, and Reliability",
+        "Mobile and Consumer Onramps",
+        "Where Solana May Shine Next"
+      ]
+    },
+    {
+      "id": "avalanche",
+      "title": "Avalanche: Subnets and Settle Fast",
+      "emoji": "🏔️",
+      "tags": ["avalanche", "subnets", "pos"],
+      "est_read_min": 26,
+      "file": "../08-avalanche/08-avalanche.json",
+      "headings": [
+        "Avalanche Consensus",
+        "X, C, and P Chains",
+        "Subnets in Practice",
+        "DeFi and Gaming Focus",
+        "Bridging and Liquidity",
+        "Strengths and Limits"
+      ]
+    },
+    {
+      "id": "cosmos",
+      "title": "Cosmos: App Chains and the Internet of Blockchains",
+      "emoji": "🌌",
+      "tags": ["cosmos", "ibc", "app-chains"],
+      "est_read_min": 32,
+      "file": "../09-cosmos/09-cosmos.json",
+      "headings": [
+        "Tendermint and the SDK",
+        "IBC and Trust-minimized Links",
+        "App Chain Thesis",
+        "Security Models: Sovereign and Shared",
+        "DeFi, Liquid Staking, and Zones",
+        "Ecosystem Strengths and Risks"
+      ]
+    },
+    {
+      "id": "vechain",
+      "title": "VeChain: Supply Chains and Enterprise Integrations",
+      "emoji": "📦",
+      "tags": ["vechain", "supply-chain", "enterprise", "rwa"],
+      "est_read_min": 24,
+      "file": "../10-vechain/10-vechain.json",
+      "headings": [
+        "Dual Token Design",
+        "RFID and Real Asset Links",
+        "Traceability and Audits",
+        "Partnerships and Pilots",
+        "Strengths and Critiques"
+      ]
+    },
+    {
+      "id": "base",
+      "title": "Base: Coinbase’s L2 for the Next Billion",
+      "emoji": "🧱",
+      "tags": ["base", "l2", "optimism-stack", "onboarding"],
+      "est_read_min": 30,
+      "file": "../11-base/11-base.json",
+      "headings": [
+        "Why Base Exists",
+        "OP Stack and Sequencing",
+        "Bridging and Costs",
+        "Consumer Apps and Safety Rails",
+        "Identity and Commerce Paths",
+        "Tradeoffs and Future Plans"
+      ]
+    },
+    {
+      "id": "nfts",
+      "title": "NFTs: Culture, Identity, and Utility",
+      "emoji": "🎨",
+      "tags": ["nft", "culture", "identity", "tickets", "gaming"],
+      "est_read_min": 28,
+      "file": "../12-nfts/12-nfts.json",
+      "headings": [
+        "What an NFT Really Is",
+        "CryptoKitties to Beeple",
+        "BAYC and Membership Models",
+        "Scams, Rugs, and Lessons",
+        "Tickets, Music, and Gaming",
+        "Dynamic NFTs and Onchain Identity",
+        "The $MemO Collective and DRIP",
+        "Where NFTs Evolve Next"
+      ]
+    },
+    {
+      "id": "rwa",
+      "title": "Real World Assets: Bringing the World Onchain",
+      "emoji": "🏗️",
+      "tags": ["rwa", "tokenization", "finance", "hbar", "algorand", "ethereum", "cosmos", "vechain"],
+      "est_read_min": 36,
+      "file": "../13-rwa/13-rwa.json",
+      "headings": [
+        "Why Tokenize Assets",
+        "Legal, Custody, and Compliance",
+        "Cash and Treasuries Onchain",
+        "Real Estate, Credit, and Invoices",
+        "Commodities and Carbon",
+        "Healthcare and Medical Data",
+        "Hedera, Algorand, Ethereum, Cosmos, and VeChain",
+        "Risks, Oracles, and Audits",
+        "The Path to Mainstream Finance"
+      ]
+    },
+    {
+      "id": "future-trends",
+      "title": "Future Trends: Where This All Might Go",
+      "emoji": "🚀",
+      "tags": ["trends", "consumer", "identity", "ai", "privacy"],
+      "est_read_min": 34,
+      "file": "../14-future-trends/14-future-trends.json",
+      "headings": [
+        "Consumer Onramps and UX",
+        "Identity and Credentials",
+        "AI Agents with Wallets",
+        "Gaming at Scale",
+        "Payments and Remittances",
+        "Privacy and Zero Knowledge",
+        "Regulatory Paths",
+        "Cycles, Resets, and Building"
+      ]
+    }
+  ]
+}

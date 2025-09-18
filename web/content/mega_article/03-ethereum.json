@@ -1,0 +1,86 @@
+{
+  "title": "Ethereum: The World Computer",
+  "sections": [
+    {
+      "heading": "From Bitcoin’s Shadow to a New Vision",
+      "content": "After Bitcoin proved digital scarcity could exist, the next big question was: what if you could program money itself? Vitalik Buterin, a young developer who had been writing about Bitcoin, saw limitations. Bitcoin was powerful but simple. It was like a calculator: great at addition and subtraction, but not built to run your entire operating system. Vitalik imagined something bigger: a blockchain that acted like a world computer. In 2015, Ethereum launched with that vision: a decentralized platform capable of running smart contracts and decentralized applications. Instead of just moving money, Ethereum could move logic, rules, and agreements, all enforced by code."
+    },
+    {
+      "heading": "Smart Contracts: Code as Law",
+      "content": "At the heart of Ethereum are smart contracts. These are self executing programs that live on the blockchain. Once deployed, they run exactly as written, no exceptions. Think of them like vending machines. You put in the right input, and the machine delivers the output, no manager needed. Smart contracts opened up endless possibilities: tokens, decentralized exchanges, lending markets, games, NFTs, and DAOs. Ethereum became a Lego box for financial and cultural experiments."
+    },
+    {
+      "heading": "Gas Fees and the Cost of Computation",
+      "content": "Ethereum introduced the concept of gas: the fuel that powers computation. Every transaction or contract call requires gas, paid in ETH. Gas fees serve two purposes: they prevent spam and they pay miners (and later validators) for securing the network. At times of high demand, gas fees spiked to absurd levels. Users joked about paying fifty dollars just to feed their virtual cat in CryptoKitties. Gas fees were painful, but they also revealed how much demand there was for block space. The market was screaming: people wanted to use this thing, even if it cost a small fortune."
+    },
+    {
+      "heading": "The ICO Boom and Bust",
+      "content": "In 2017, Ethereum powered the Initial Coin Offering boom. Anyone could launch a token with a few lines of code, slap together a whitepaper, and raise millions from eager investors. It was the wild west of fundraising. Some projects built real innovations. Many were outright scams. Regulators eventually cracked down, and the bubble burst. Prices crashed, and critics declared Ethereum a failed experiment. But beneath the rubble, real infrastructure was built: wallets, decentralized exchanges, developer tools. These would set the stage for the next wave of growth."
+    },
+    {
+      "heading": "DeFi Summer: Money Legos in Action",
+      "content": "In 2020, decentralized finance, or DeFi, exploded on Ethereum. Protocols like Uniswap, Compound, and Aave allowed users to swap tokens, earn yield, and borrow funds without middlemen. These protocols were composable: you could plug them into each other like Lego bricks. Yield farming, liquidity mining, and governance tokens turned Ethereum into a playground for financial experiments. Critics called it Ponzi economics; fans called it the future of finance. Either way, the total value locked in DeFi skyrocketed from millions to tens of billions in months."
+    },
+    {
+      "heading": "NFT Mania on Ethereum",
+      "content": "Ethereum also became the home of NFTs, non fungible tokens. Projects like CryptoPunks, Bored Ape Yacht Club, and Art Blocks lived on Ethereum. Celebrities joined the hype, brands experimented, and prices went wild. For better or worse, Ethereum cemented its role as the cultural hub of crypto. While other chains offered cheaper alternatives, Ethereum had the network effects: the biggest marketplaces, the most liquidity, and the deepest culture."
+    },
+    {
+      "heading": "The Merge: Proof-of-Work to Proof-of-Stake",
+      "content": "One of the biggest transformations in crypto history was Ethereum’s switch from proof-of-work to proof-of-stake, known as the Merge. For years, Ethereum consumed significant energy, just like Bitcoin. But in September 2022, after years of research and engineering, Ethereum successfully transitioned. Energy use dropped by over 99 percent. Validators replaced miners, staking ETH replaced burning electricity. The Merge proved that a major blockchain could upgrade itself in real time without breaking. It was like changing the engine of an airplane mid flight, and it worked."
+    },
+    {
+      "heading": "Layer 2 and the Scaling Wars",
+      "content": "Even after the Merge, Ethereum faced the scaling problem. The base chain, or layer one, could only handle around thirty transactions per second. To scale, Ethereum embraced layer two solutions like rollups. Arbitrum, Optimism, zkSync, and StarkNet bundle transactions off chain and post compressed proofs back to Ethereum. Think of them like highways built above the main road. They carry the traffic while Ethereum acts as the secure settlement layer. This layered approach aims to balance decentralization, security, and scalability, the so called blockchain trilemma."
+    },
+    {
+      "heading": "Ethereum as Ultrasound Money",
+      "content": "With the introduction of EIP 1559, Ethereum began burning a portion of transaction fees. Combined with staking rewards, ETH developed a new narrative: ultrasound money. The idea is that Ethereum’s supply can decrease over time if enough activity burns more ETH than is issued to validators. In other words, Ethereum could become not just a utility token but also a deflationary asset. Supporters love the meme; critics question its sustainability. Either way, it gave ETH a strong monetary identity alongside Bitcoin’s digital gold thesis."
+    },
+    {
+      "heading": "Ethereum’s Challenges",
+      "content": "Ethereum is not without issues. High gas fees price out smaller users. The complexity of smart contracts introduces security risks. Hacks and exploits have cost billions. Competing blockchains market themselves as faster and cheaper alternatives. Yet Ethereum has the largest developer ecosystem, the deepest liquidity, and the strongest brand. It is the network most builders choose first. Critics call it bloated; supporters call it the settlement layer of the internet."
+    },
+    {
+      "heading": "The Road Ahead",
+      "content": "Ethereum’s roadmap is ambitious: sharding, more efficient rollups, account abstraction, and deeper integration with real world assets. Vitalik and the community call it the Surge, Verge, Purge, and Splurge. Each stage promises improvements in speed, efficiency, and usability. The ultimate goal is to make Ethereum powerful enough to run the world’s decentralized applications while remaining secure and decentralized. Whether it succeeds depends on execution and adoption. But if it works, Ethereum could become the backbone of the next generation internet."
+    }
+  ],
+  "charts": [
+    {
+      "type": "line",
+      "title": "Ethereum Gas Fees Over Time",
+      "subtitle": "Average transaction cost in USD",
+      "data": [
+        {"year": 2016, "fee": 0.02},
+        {"year": 2017, "fee": 2},
+        {"year": 2018, "fee": 0.5},
+        {"year": 2020, "fee": 5},
+        {"year": 2021, "fee": 50},
+        {"year": 2022, "fee": 3},
+        {"year": 2023, "fee": 10}
+      ]
+    },
+    {
+      "type": "bar",
+      "title": "ETH Supply Change Post EIP-1559",
+      "subtitle": "Annual net issuance vs burn",
+      "data": [
+        {"year": 2021, "net": 3.0},
+        {"year": 2022, "net": -0.5},
+        {"year": 2023, "net": -0.8}
+      ]
+    },
+    {
+      "type": "radar",
+      "title": "Ethereum vs Competitors",
+      "subtitle": "Qualitative scores on decentralization, security, throughput, culture",
+      "data": [
+        {"metric": "Decentralization", "Ethereum": 9, "Solana": 7, "Algorand": 8},
+        {"metric": "Security", "Ethereum": 9, "Solana": 7, "Algorand": 8},
+        {"metric": "Throughput", "Ethereum": 4, "Solana": 9, "Algorand": 8},
+        {"metric": "Culture", "Ethereum": 10, "Solana": 7, "Algorand": 7}
+      ]
+    }
+  ]
+}
