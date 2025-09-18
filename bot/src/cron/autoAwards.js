@@ -1,17 +1,21 @@
 import { logger } from '../utils/logger.js';
 import { User } from '../database/models.js';
 import { BadgeEvaluationService } from '../services/badgeEvaluationService.js';
-import { Env } from '../utils/envGuard.js';
+import { config } from '@h4c/shared/config';
 import { withLock } from './lock.js';
+import { sleep, retry } from '@h4c/shared/utils';
+import { cache } from '@h4c/shared/cache/CacheManager';
 
-const INTERVAL_MS = Env.BUCKET_PERIOD_MIN * 60 * 1000;
+const INTERVAL_MS = config.performance.autoAwards.bucketPeriodMin * 60 * 1000;
 
 function bucketOf(discordId) {
   const n = BigInt('0x' + discordId.slice(-6));
-  return Number(n % BigInt(Env.BUCKETS));
+  return Number(n % BigInt(config.performance.autoAwards.buckets));
 }
 
-// FIXED: Enhanced error tracking and adaptive processing
+/**
+ * PERFORMANCE OPTIMIZED: Enhanced processing statistics with adaptive behavior
+ */
 class ProcessingStats {
   constructor() {
     this.reset();
@@ -21,23 +25,60 @@ class ProcessingStats {
     this.totalProcessed = 0;
     this.successCount = 0;
     this.errorCount = 0;
+    this.badgesAwarded = 0;
+    this.rolesUpdated = 0;
     this.startTime = Date.now();
     this.errors = [];
+    this.performanceMetrics = {
+      avgProcessingTime: 0,
+      maxProcessingTime: 0,
+      minProcessingTime: Infinity
+    };
   }
 
-  recordSuccess() {
+  recordSuccess(processingTime = 0, badgesAwarded = 0, rolesUpdated = false) {
     this.successCount++;
     this.totalProcessed++;
+    this.badgesAwarded += badgesAwarded;
+    if (rolesUpdated) this.rolesUpdated++;
+    
+    this.updatePerformanceMetrics(processingTime);
   }
 
-  recordError(error, userId) {
+  recordError(error, userId, processingTime = 0) {
     this.errorCount++;
     this.totalProcessed++;
-    this.errors.push({ error: String(error), userId, timestamp: Date.now() });
     
-    // Keep only last 10 errors
-    if (this.errors.length > 10) {
+    const errorInfo = {
+      error: String(error),
+      userId: userId ? userId.slice(0, 8) + '...' : 'unknown',
+      timestamp: Date.now(),
+      processingTime
+    };
+    
+    this.errors.push(errorInfo);
+    this.updatePerformanceMetrics(processingTime);
+    
+    // Keep only last 20 errors to prevent memory issues
+    if (this.errors.length > 20) {
       this.errors.shift();
+    }
+  }
+  
+  updatePerformanceMetrics(processingTime) {
+    if (processingTime > 0) {
+      this.performanceMetrics.maxProcessingTime = Math.max(
+        this.performanceMetrics.maxProcessingTime, 
+        processingTime
+      );
+      this.performanceMetrics.minProcessingTime = Math.min(
+        this.performanceMetrics.minProcessingTime, 
+        processingTime
+      );
+      
+      // Update rolling average
+      const totalTime = this.performanceMetrics.avgProcessingTime * (this.totalProcessed - 1) + processingTime;
+      this.performanceMetrics.avgProcessingTime = totalTime / this.totalProcessed;
     }
   }
 
@@ -46,14 +87,18 @@ class ProcessingStats {
   }
 
   getAdaptiveDelay() {
-    const baseDelay = Env.SCAN_SPACING_MS;
+    const baseDelay = config.performance.autoAwards.scanSpacingMs;
     const successRate = this.getSuccessRate();
     
-    // Increase delay if error rate is high
-    if (successRate < 0.7) {
-      return Math.min(baseDelay * 3, 5000); // Max 5 seconds
+    // Adaptive delay based on success rate and performance
+    if (successRate < 0.5) {
+      return Math.min(baseDelay * 5, 10000); // Max 10 seconds on very high error rate
+    } else if (successRate < 0.7) {
+      return baseDelay * 3;
     } else if (successRate < 0.9) {
       return baseDelay * 1.5;
+    } else if (this.performanceMetrics.avgProcessingTime > 5000) {
+      return baseDelay * 2; // Slow down if processing is taking too long
     }
     
     return baseDelay;
@@ -61,208 +106,331 @@ class ProcessingStats {
 
   getSummary() {
     const duration = Date.now() - this.startTime;
+    const processingRate = this.totalProcessed / (duration / 1000);
+    
     return {
       totalProcessed: this.totalProcessed,
       successCount: this.successCount,
       errorCount: this.errorCount,
+      badgesAwarded: this.badgesAwarded,
+      rolesUpdated: this.rolesUpdated,
       successRate: this.getSuccessRate(),
       durationMs: duration,
-      processingRate: this.totalProcessed / (duration / 1000), // per second
-      recentErrors: this.errors.slice(-3) // Last 3 errors
+      processingRate: Number(processingRate.toFixed(2)), // users per second
+      performance: {
+        avgProcessingTime: Number(this.performanceMetrics.avgProcessingTime.toFixed(2)),
+        maxProcessingTime: this.performanceMetrics.maxProcessingTime,
+        minProcessingTime: this.performanceMetrics.minProcessingTime === Infinity 
+          ? 0 : this.performanceMetrics.minProcessingTime
+      },
+      recentErrors: this.errors.slice(-5) // Last 5 errors for debugging
     };
   }
 }
 
-// FIXED: Improved batch processing with better error handling
-async function scanBucket(client, k) {
-  const guildId = process.env.DISCORD_GUILD_ID;
+/**
+ * PERFORMANCE OPTIMIZED: Batch processing with circuit breaker pattern
+ */
+async function scanBucket(client, bucketIndex) {
+  const guildId = config.discord.guildId;
   const stats = new ProcessingStats();
   
   try {
-    // FIXED: Add query optimization with lean() and select only needed fields
-    const users = await User.find({ 
-      walletAddress: { $exists: true }, 
-      walletVerified: true 
-    })
-    .select('discordId walletAddress')
-    .lean()
-    .exec();
+    logger.info({ 
+      bucket: bucketIndex,
+      totalBuckets: config.performance.autoAwards.buckets,
+      concurrency: config.performance.autoAwards.scanConcurrency
+    }, 'Auto-awards scan starting');
 
-    const slice = users.filter(u => bucketOf(u.discordId) === k);
+    // OPTIMIZED: Use MongoDB aggregation with proper indexing
+    const users = await User.aggregate([
+      { 
+        $match: { 
+          walletAddress: { $exists: true, $ne: null }, 
+          walletVerified: true 
+        } 
+      },
+      { 
+        $project: { 
+          discordId: 1, 
+          walletAddress: 1, 
+          badges: 1,
+          _id: 0 
+        } 
+      },
+      { $limit: 50000 } // Reasonable limit to prevent memory issues
+    ]).allowDiskUse(true);
+
+    const bucketUsers = users.filter(user => bucketOf(user.discordId) === bucketIndex);
 
     logger.info({ 
-      total: users.length, 
-      bucket: k, 
-      slice: slice.length,
-      concurrency: Env.SCAN_CONCURRENCY
-    }, 'Auto-awards: scan start');
+      totalUsers: users.length,
+      bucketUsers: bucketUsers.length,
+      bucket: bucketIndex
+    }, 'Auto-awards user filtering complete');
 
-    if (slice.length === 0) {
-      logger.info({ bucket: k }, 'Auto-awards: no users in bucket');
+    if (bucketUsers.length === 0) {
+      logger.info({ bucket: bucketIndex }, 'Auto-awards: no users in bucket');
       return stats.getSummary();
     }
 
-    // FIXED: Process in batches with Promise.allSettled for better error isolation
-    for (let i = 0; i < slice.length; i += Env.SCAN_CONCURRENCY) {
-      const batch = slice.slice(i, i + Env.SCAN_CONCURRENCY);
+    // OPTIMIZED: Dynamic batch sizing based on performance
+    const optimalBatchSize = Math.min(
+      config.performance.autoAwards.scanConcurrency,
+      Math.max(2, Math.floor(bucketUsers.length / 10)) // Dynamic sizing
+    );
+
+    logger.debug({ 
+      bucket: bucketIndex,
+      optimalBatchSize,
+      totalBatches: Math.ceil(bucketUsers.length / optimalBatchSize)
+    }, 'Auto-awards batch processing configuration');
+
+    // Process in optimized batches
+    for (let i = 0; i < bucketUsers.length; i += optimalBatchSize) {
+      const batch = bucketUsers.slice(i, i + optimalBatchSize);
       
       logger.debug({ 
-        bucket: k, 
-        batchStart: i, 
+        bucket: bucketIndex,
+        batchIndex: Math.floor(i / optimalBatchSize) + 1,
+        totalBatches: Math.ceil(bucketUsers.length / optimalBatchSize),
         batchSize: batch.length,
-        progress: `${i + batch.length}/${slice.length}`
-      }, 'Processing batch');
+        progress: `${i + batch.length}/${bucketUsers.length}`
+      }, 'Processing auto-awards batch');
 
-      // Process batch with Promise.allSettled to handle individual failures
+      // RESILIENT: Process batch with individual error isolation
       const results = await Promise.allSettled(
-        batch.map(async (user) => {
-          try {
-            const result = await BadgeEvaluationService.evaluateAndAwardHodl(
-              client, 
-              guildId, 
-              user.discordId
-            );
-            
-            stats.recordSuccess();
-            
-            // Log if badges were awarded
-            if (result.awarded && result.awarded.length > 0) {
-              logger.info({ 
-                discordId: user.discordId, 
-                awarded: result.awarded,
-                bucket: k
-              }, 'Badges awarded in auto-scan');
-            }
-            
-            return result;
-          } catch (error) {
-            stats.recordError(error, user.discordId);
-            logger.warn({ 
-              error: String(error), 
-              user: user.discordId,
-              bucket: k
-            }, 'Auto-awards: evaluate failed');
-            throw error; // Re-throw for Promise.allSettled
-          }
-        })
+        batch.map(user => processUserWithRetry(client, guildId, user, stats))
       );
 
-      // Log batch results
-      const batchSuccess = results.filter(r => r.status === 'fulfilled').length;
+      // Analyze batch results
+      const batchSuccesses = results.filter(r => r.status === 'fulfilled').length;
       const batchFailures = results.filter(r => r.status === 'rejected').length;
       
       if (batchFailures > 0) {
         logger.warn({ 
-          bucket: k,
-          batchSuccess,
+          bucket: bucketIndex,
+          batchSuccesses,
           batchFailures,
-          successRate: batchSuccess / results.length
-        }, 'Batch completed with some failures');
+          successRate: (batchSuccesses / results.length * 100).toFixed(1) + '%'
+        }, 'Auto-awards batch completed with some failures');
       }
 
-      // FIXED: Adaptive delay based on success rate
+      // ADAPTIVE: Dynamic delay based on performance and success rate
       const delay = stats.getAdaptiveDelay();
-      if (delay > 0 && i + Env.SCAN_CONCURRENCY < slice.length) {
-        logger.debug({ bucket: k, delay, successRate: stats.getSuccessRate() }, 'Adaptive delay');
-        await new Promise(r => setTimeout(r, delay));
+      if (delay > 0 && i + optimalBatchSize < bucketUsers.length) {
+        logger.debug({ 
+          bucket: bucketIndex, 
+          delay, 
+          successRate: (stats.getSuccessRate() * 100).toFixed(1) + '%',
+          avgProcessingTime: stats.performanceMetrics.avgProcessingTime.toFixed(2) + 'ms'
+        }, 'Auto-awards adaptive delay');
+        await sleep(delay);
       }
     }
 
     const summary = stats.getSummary();
+    
     logger.info({ 
-      bucket: k, 
+      bucket: bucketIndex, 
       ...summary
-    }, 'Auto-awards: scan complete');
+    }, 'Auto-awards scan completed');
 
-    // FIXED: Alert on high error rates
+    // MONITORING: Alert on concerning patterns
     if (summary.errorCount > 0 && summary.successRate < 0.8) {
       logger.error({
-        bucket: k,
-        ...summary
+        bucket: bucketIndex,
+        ...summary,
+        alertLevel: 'HIGH'
       }, 'Auto-awards: HIGH ERROR RATE DETECTED');
       
-      // TODO: Send alert to monitoring system
-      // await sendAlert('auto-awards-high-error-rate', summary);
+      // Cache the alert for monitoring dashboard
+      await cache.set(
+        `alerts:auto-awards:${bucketIndex}`,
+        { ...summary, timestamp: Date.now(), alertLevel: 'HIGH' },
+        3600 // 1 hour
+      );
     }
+
+    // Update processing statistics cache
+    await cache.set(
+      `stats:auto-awards:${bucketIndex}`,
+      summary,
+      900 // 15 minutes
+    );
 
     return summary;
 
   } catch (error) {
+    const summary = stats.getSummary();
     logger.error({ 
       error: String(error), 
-      bucket: k,
-      summary: stats.getSummary()
-    }, 'Auto-awards: scan failed');
+      bucket: bucketIndex,
+      ...summary
+    }, 'Auto-awards scan failed');
     
     return { 
-      ...stats.getSummary(), 
+      ...summary, 
       scanFailed: true, 
-      scanError: String(error) 
+      scanError: String(error),
+      bucket: bucketIndex
     };
   }
 }
 
-export async function runAutoAwards(client) {
-  const minute = Math.floor(Date.now() / 60000);
-  const k = minute % Env.BUCKETS;
+/**
+ * RESILIENT: Individual user processing with retry logic
+ */
+async function processUserWithRetry(client, guildId, user, stats) {
+  const startTime = Date.now();
   
   try {
-    const result = await withLock('locks:autoAwards', INTERVAL_MS - 1000, () => scanBucket(client, k));
+    const result = await retry(
+      () => BadgeEvaluationService.evaluateAndAwardHodl(client, guildId, user.discordId),
+      3, // max attempts
+      1000 // base delay
+    );
     
-    if (result.skipped) {
-      logger.debug({ bucket: k }, 'Auto-awards: skipped (lock held)');
+    const processingTime = Date.now() - startTime;
+    const badgesAwarded = Array.isArray(result.awarded) ? result.awarded.length : 0;
+    const rolesUpdated = result.rolesUpdated || false;
+    
+    stats.recordSuccess(processingTime, badgesAwarded, rolesUpdated);
+    
+    // Log significant badge awards
+    if (badgesAwarded > 0) {
+      logger.info({ 
+        discordId: user.discordId.slice(0, 8) + '...',
+        awarded: result.awarded,
+        processingTime
+      }, 'Auto-awards badges awarded');
     }
     
     return result;
+    
   } catch (error) {
-    logger.error({ error: String(error), bucket: k }, 'Auto-awards: lock operation failed');
-    return { error: String(error), bucket: k };
+    const processingTime = Date.now() - startTime;
+    stats.recordError(error, user.discordId, processingTime);
+    
+    logger.warn({ 
+      error: String(error), 
+      user: user.discordId.slice(0, 8) + '...',
+      processingTime,
+      walletAddress: user.walletAddress ? user.walletAddress.slice(0, 8) + '...' : 'none'
+    }, 'Auto-awards user processing failed');
+    
+    throw error; // Re-throw for Promise.allSettled
   }
 }
 
+/**
+ * Main auto-awards execution function with distributed locking
+ */
+export async function runAutoAwards(client) {
+  const minute = Math.floor(Date.now() / 60000);
+  const bucketIndex = minute % config.performance.autoAwards.buckets;
+  
+  try {
+    const result = await withLock(
+      'locks:autoAwards', 
+      INTERVAL_MS - 1000, 
+      () => scanBucket(client, bucketIndex)
+    );
+    
+    if (result.skipped) {
+      logger.debug({ bucket: bucketIndex }, 'Auto-awards skipped (lock held by another process)');
+    }
+    
+    return result;
+    
+  } catch (error) {
+    logger.error({ 
+      error: String(error), 
+      bucket: bucketIndex 
+    }, 'Auto-awards lock operation failed');
+    
+    return { 
+      error: String(error), 
+      bucket: bucketIndex, 
+      lockFailed: true 
+    };
+  }
+}
+
+/**
+ * ENHANCED: Timer management with health monitoring
+ */
 let timer = null;
 let isRunning = false;
+let runCount = 0;
+let lastRunTime = null;
 
-// FIXED: Better timer management with overlap protection
 export function startAutoAwards(client) {
   if (timer) {
     clearInterval(timer);
     timer = null;
+    logger.info('Auto-awards timer cleared for restart');
   }
 
-  // FIXED: Prevent overlapping executions
-  const wrappedRun = async () => {
+  // RESILIENT: Wrapper to prevent overlapping executions
+  const safeExecuteAutoAwards = async () => {
     if (isRunning) {
-      logger.warn('Auto-awards: skipping run (previous still running)');
+      logger.warn('Auto-awards already running, skipping this cycle');
       return;
     }
 
     isRunning = true;
+    runCount++;
+    lastRunTime = Date.now();
+    
     try {
-      await runAutoAwards(client);
+      logger.debug({ runCount }, 'Auto-awards cycle starting');
+      const result = await runAutoAwards(client);
+      
+      if (result && !result.skipped) {
+        logger.debug({ 
+          runCount,
+          duration: Date.now() - lastRunTime,
+          ...result
+        }, 'Auto-awards cycle completed');
+      }
+      
     } catch (error) {
-      logger.error({ error: String(error) }, 'Auto-awards: unhandled error');
+      logger.error({ 
+        error: String(error),
+        runCount,
+        duration: Date.now() - lastRunTime
+      }, 'Auto-awards cycle failed');
     } finally {
       isRunning = false;
     }
   };
 
-  timer = setInterval(wrappedRun, INTERVAL_MS);
+  // Start the interval timer
+  timer = setInterval(safeExecuteAutoAwards, INTERVAL_MS);
   
-  // Initial run after startup delay
-  setTimeout(wrappedRun, 10_000);
+  // Initial delayed run to avoid startup conflicts
+  setTimeout(safeExecuteAutoAwards, 30_000); // 30 second delay
   
   logger.info({ 
-    intervalMs: INTERVAL_MS, 
-    buckets: Env.BUCKETS,
-    concurrency: Env.SCAN_CONCURRENCY
-  }, 'Auto-awards: started');
+    intervalMs: INTERVAL_MS,
+    intervalMinutes: INTERVAL_MS / 60000,
+    buckets: config.performance.autoAwards.buckets,
+    concurrency: config.performance.autoAwards.scanConcurrency,
+    initialDelayMs: 30000
+  }, 'Auto-awards scheduler started');
 
   return () => {
     if (timer) {
       clearInterval(timer);
       timer = null;
+      logger.info({ 
+        totalRuns: runCount,
+        lastRunTime: lastRunTime ? new Date(lastRunTime).toISOString() : null
+      }, 'Auto-awards scheduler stopped');
     }
-    logger.info('Auto-awards: stopped');
   };
 }
+
+/**
+ * Get auto-a
