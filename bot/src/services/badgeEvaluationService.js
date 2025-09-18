@@ -1,6 +1,6 @@
 import { User, Badge } from '../database/models.js';
 import { algoClient } from '../utils/algorandClient.js';
-import { criteria } from '../../../shared/index.js'; // Fixed import path
+import { criteria } from '../../../shared/index.js';
 import { RoleManagementService } from './roleManagementService.js';
 import { logger } from '../utils/logger.js';
 import { metrics } from '../middleware/metrics.js';
@@ -46,11 +46,18 @@ export class BadgeEvaluationService {
         return { awarded: [] };
       }
 
-      // Get current $MemO balance
-      const rawBalance = await algoClient.getAssetBalance(
-        user.walletAddress, 
-        criteria.assets.memo.asa_id
-      );
+      // Get current $MemO balance with error handling
+      let rawBalance;
+      try {
+        rawBalance = await algoClient.getAssetBalance(
+          user.walletAddress, 
+          criteria.assets.memo.asa_id
+        );
+      } catch (error) {
+        logger.error({ error: String(error), discordId, wallet: user.walletAddress }, 'Failed to get balance');
+        return { awarded: [], error: 'Balance check failed' };
+      }
+
       const balance = rawBalance / Math.pow(10, criteria.assets.memo.decimals);
       
       const desiredBadge = pickHodlBadgeId(balance);
@@ -59,28 +66,34 @@ export class BadgeEvaluationService {
         return { awarded: [] };
       }
 
-      const badges = new Set(user.badges || []);
-      const newlyAwarded = [];
-
-      // Remove lower tier HODL badges and add new one
+      // FIXED: Use atomic operations to prevent race conditions
       const hodlBadges = ['hodl-shrimp', 'hodl-crab', 'hodl-fish', 'hodl-dolphin', 'hodl-shark', 'hodl-whale', 'hodl-titan'];
-      let removedBadges = [];
       
-      for (const oldBadge of hodlBadges) {
-        if (oldBadge !== desiredBadge && badges.has(oldBadge)) {
-          badges.delete(oldBadge);
-          removedBadges.push(oldBadge);
+      // Remove all lower tier HODL badges atomically
+      const removedBadges = hodlBadges.filter(badge => badge !== desiredBadge);
+      
+      const updateResult = await User.findOneAndUpdate(
+        { discordId },
+        {
+          $pull: { badges: { $in: removedBadges } },
+          $addToSet: { badges: desiredBadge }
+        },
+        { 
+          new: true,
+          upsert: false // Don't create if user doesn't exist
         }
+      );
+
+      if (!updateResult) {
+        logger.error({ discordId }, 'User not found during badge update');
+        return { awarded: [], error: 'User not found' };
       }
 
-      if (!badges.has(desiredBadge)) {
-        badges.add(desiredBadge);
-        newlyAwarded.push(desiredBadge);
-        
-        // Update user badges
-        user.badges = [...badges];
-        await user.save();
+      // Check if badge was actually added (wasn't already present)
+      const previousBadges = user.badges || [];
+      const newlyAwarded = previousBadges.includes(desiredBadge) ? [] : [desiredBadge];
 
+      if (newlyAwarded.length > 0) {
         // Ensure badge exists in database
         await Badge.findOneAndUpdate(
           { badgeId: desiredBadge },
@@ -106,14 +119,19 @@ export class BadgeEvaluationService {
       }
 
       // Sync Discord roles
-      const guild = client.guilds.cache.get(guildId);
-      if (guild) {
-        await RoleManagementService.syncHodlRoles(guild, discordId);
+      try {
+        const guild = client.guilds.cache.get(guildId);
+        if (guild) {
+          await RoleManagementService.syncHodlRoles(guild, discordId);
+        }
+      } catch (error) {
+        logger.error({ error: String(error), discordId }, 'Role sync failed');
+        // Don't fail the badge award if role sync fails
       }
 
       return { 
         awarded: newlyAwarded,
-        removed: removedBadges,
+        removed: removedBadges.filter(badge => previousBadges.includes(badge)),
         currentBadge: desiredBadge,
         balance: Math.round(balance)
       };
@@ -136,27 +154,27 @@ export class BadgeEvaluationService {
         return { awarded: [] };
       }
 
-      const badges = new Set(user.badges || []);
-      const newlyAwarded = [];
-
-      // Remove lower tier LP badges and add new one
+      // FIXED: Use atomic operations for LP badges too
       const lpBadges = ['lp-bronze', 'lp-silver', 'lp-gold', 'lp-platinum', 'lp-diamond'];
-      let removedBadges = [];
+      const removedBadges = lpBadges.filter(badge => badge !== desiredBadge);
       
-      for (const oldBadge of lpBadges) {
-        if (oldBadge !== desiredBadge && badges.has(oldBadge)) {
-          badges.delete(oldBadge);
-          removedBadges.push(oldBadge);
-        }
+      const updateResult = await User.findOneAndUpdate(
+        { discordId },
+        {
+          $pull: { badges: { $in: removedBadges } },
+          $addToSet: { badges: desiredBadge }
+        },
+        { new: true, upsert: false }
+      );
+
+      if (!updateResult) {
+        return { awarded: [], error: 'User not found' };
       }
 
-      if (!badges.has(desiredBadge)) {
-        badges.add(desiredBadge);
-        newlyAwarded.push(desiredBadge);
-        
-        user.badges = [...badges];
-        await user.save();
+      const previousBadges = user.badges || [];
+      const newlyAwarded = previousBadges.includes(desiredBadge) ? [] : [desiredBadge];
 
+      if (newlyAwarded.length > 0) {
         await Badge.findOneAndUpdate(
           { badgeId: desiredBadge },
           {
@@ -182,7 +200,7 @@ export class BadgeEvaluationService {
 
       return { 
         awarded: newlyAwarded,
-        removed: removedBadges,
+        removed: removedBadges.filter(badge => previousBadges.includes(badge)),
         currentBadge: desiredBadge,
         lpUsdValue: Math.round(lpUsdValue)
       };
