@@ -194,4 +194,184 @@ export function tokenBucket(options = {}) {
   } = options;
 
   return async function rateLimit(
-  
+  return async function rateLimit(req, res, next) {
+    const clientIp = getClientIp(req);
+    
+    // Security check: reject if we can't determine IP
+    if (clientIp === 'unknown') {
+      logger.warn({ 
+        headers: Object.keys(req.headers),
+        hasSocket: !!req.socket 
+      }, 'Could not determine client IP for rate limiting');
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'Unable to process request' 
+      });
+    }
+
+    const key = `rl:${bucket}:${clientIp}`;
+    const now = Date.now();
+
+    try {
+      // Get current bucket state
+      const data = await redis.hgetall(key);
+      let tokens = Number(data.tokens || maxTokens);
+      let lastRefill = Number(data.ts || now);
+
+      // Calculate token refill
+      const elapsedSec = Math.max(0, (now - lastRefill) / 1000);
+      const refillAmount = elapsedSec * refillPerSec;
+      tokens = Math.min(maxTokens + burst, tokens + refillAmount);
+      
+      // Check if request can proceed
+      if (tokens < 1) {
+        const retryAfter = Math.ceil((1 - tokens) / refillPerSec);
+        
+        res.set('Retry-After', String(retryAfter));
+        res.set('X-RateLimit-Limit', String(maxTokens));
+        res.set('X-RateLimit-Remaining', '0');
+        res.set('X-RateLimit-Reset', String(Math.ceil((now + (retryAfter * 1000)) / 1000)));
+        
+        logger.warn({ 
+          ip: clientIp.slice(0, 10) + '...', 
+          bucket, 
+          tokens: tokens.toFixed(2),
+          retryAfter 
+        }, 'Rate limit exceeded');
+        
+        return res.status(429).json({ 
+          ok: false, 
+          error: 'Rate limit exceeded',
+          retryAfter 
+        });
+      }
+      
+      // Consume token
+      tokens -= 1;
+
+      // Update bucket state
+      await redis.hmset(key, { 
+        tokens: tokens.toFixed(6), 
+        ts: now 
+      });
+      await redis.pexpire(key, windowMs);
+
+      // Add rate limit headers
+      res.set('X-RateLimit-Limit', String(maxTokens));
+      res.set('X-RateLimit-Remaining', String(Math.floor(tokens)));
+      res.set('X-RateLimit-Reset', String(Math.ceil((now + windowMs) / 1000)));
+
+      logger.debug({ 
+        ip: clientIp.slice(0, 10) + '...', 
+        bucket, 
+        tokensRemaining: tokens.toFixed(2)
+      }, 'Rate limit check passed');
+
+      return next();
+      
+    } catch (error) {
+      logger.error({ 
+        error: error.message, 
+        bucket,
+        ip: clientIp.slice(0, 10) + '...'
+      }, 'Rate limiting error - failing open');
+      
+      // Fail open on Redis errors to maintain availability
+      return next();
+    }
+  };
+}
+
+/**
+ * Admin-only rate limiter with IP allowlist
+ */
+export function adminGuard(options = {}) {
+  const {
+    windowMs = config.security.rateLimits.admin.windowMs,
+    maxTokens = config.security.rateLimits.admin.max,
+    refillPerSec = 1,
+    burst = 5,
+    allowList = parseAllowList(process.env.ADMIN_IP_ALLOWLIST || '')
+  } = options;
+
+  const rateLimiter = tokenBucket({
+    windowMs,
+    maxTokens,
+    refillPerSec,
+    burst,
+    bucket: 'admin'
+  });
+
+  return async function adminRateLimit(req, res, next) {
+    const clientIp = getClientIp(req);
+    
+    // IP allowlist check
+    if (allowList.length > 0) {
+      const allowed = isIpInAllowlist(clientIp, allowList);
+      
+      if (!allowed) {
+        logger.warn({ 
+          ip: clientIp.slice(0, 10) + '...', 
+          path: req.path,
+          userAgent: req.headers['user-agent']?.slice(0, 50),
+          allowListSize: allowList.length
+        }, 'Admin access denied - IP not in allowlist');
+        
+        return res.status(403).json({ 
+          ok: false, 
+          error: 'Access denied' 
+        });
+      }
+      
+      logger.debug({ 
+        ip: clientIp.slice(0, 10) + '...', 
+        path: req.path 
+      }, 'Admin IP allowlist check passed');
+    }
+    
+    // Apply rate limiting
+    return rateLimiter(req, res, next);
+  };
+}
+
+/**
+ * Get rate limit statistics for monitoring
+ */
+export async function getRateLimitStats() {
+  try {
+    const keys = await redis.keys('rl:*');
+    const stats = {
+      totalBuckets: keys.length,
+      bucketsByType: {},
+      timestamp: Date.now()
+    };
+    
+    // Count buckets by type
+    for (const key of keys) {
+      const [, bucketType] = key.split(':');
+      stats.bucketsByType[bucketType] = (stats.bucketsByType[bucketType] || 0) + 1;
+    }
+    
+    return stats;
+  } catch (error) {
+    logger.error({ error: error.message }, 'Failed to get rate limit stats');
+    return { error: error.message };
+  }
+}
+
+/**
+ * Clear all rate limit buckets (admin utility)
+ */
+export async function clearRateLimits() {
+  try {
+    const keys = await redis.keys('rl:*');
+    if (keys.length > 0) {
+      await redis.del(keys);
+      logger.info({ cleared: keys.length }, 'Rate limit buckets cleared');
+    }
+    return { cleared: keys.length };
+  } catch (error) {
+    logger.error({ error: error.message }, 'Failed to clear rate limits');
+    throw error;
+  }
+}
