@@ -5,12 +5,18 @@ services:
     rootDir: web
     buildCommand: |
       echo "=== Starting Web Build ===" &&
-      node --version &&
-      npm --version &&
+      echo "Node version:" && node --version &&
+      echo "NPM version:" && npm --version &&
+      echo "Current directory:" && pwd &&
+      echo "Listing files:" && ls -la &&
+      echo "Running debug script..." &&
+      node debug-build.js &&
       echo "Installing dependencies..." &&
       npm ci --only=production &&
       echo "Building Next.js app..." &&
       npm run build &&
+      echo "Build complete, checking output..." &&
+      ls -la .next/ &&
       echo "=== Web Build Complete ==="
     startCommand: "npm run start"
     envVars:
@@ -22,6 +28,9 @@ services:
         value: "0.20"
       - key: PORT
         value: "3001"
+      # Optional for web frontend
+      - key: BOT_API_URL
+        value: "http://localhost:3000"
     autoDeploy: true
     
   - type: web
@@ -30,12 +39,18 @@ services:
     rootDir: bot
     buildCommand: |
       echo "=== Starting Bot Build ===" &&
-      node --version &&
-      npm --version &&
+      echo "Node version:" && node --version &&
+      echo "NPM version:" && npm --version &&
+      echo "Current directory:" && pwd &&
+      echo "Listing files:" && ls -la &&
+      echo "Checking required files..." &&
+      ls -la src/ &&
       echo "Installing dependencies..." &&
       npm ci --only=production &&
-      echo "Testing environment..." &&
-      node -e "console.log('Node.js working'); process.exit(0)" &&
+      echo "Testing Node.js environment..." &&
+      node -e "console.log('Node.js test successful'); process.exit(0)" &&
+      echo "Testing imports..." &&
+      node -e "console.log('Testing imports...'); import('dotenv').then(() => console.log('dotenv OK')).catch(e => console.log('dotenv error:', e))" &&
       echo "=== Bot Build Complete ==="
     startCommand: "npm run start"
     healthCheckPath: "/health"
@@ -47,7 +62,8 @@ services:
       - key: LOG_LEVEL
         value: "info"
       
-      # CRITICAL: Set these in Render Environment tab
+      # CRITICAL: These MUST be set in Render Environment Variables tab
+      # Go to your service → Environment → Add Environment Variable
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL  
@@ -59,13 +75,23 @@ services:
       - key: ADMIN_JWT_SECRET
         sync: false
       
-      # Defaults to prevent startup errors
+      # Optional but recommended (can be overridden in Environment tab)
+      - key: NODELY_INDEXER_API_KEY
+        sync: false
+      - key: ETHEREUM_RPC_URL
+        sync: false
+      - key: SOLANA_RPC_URL
+        sync: false
+      
+      # Default values to prevent startup errors
       - key: ALGORAND_NODE_URL
         value: "https://mainnet-api.algonode.cloud"
       - key: NODELY_INDEXER_URL
         value: "https://mainnet-api.4160.nodely.dev"
       - key: TINYMAN_API
         value: "https://mainnet.analytics.tinyman.org/api/v1"
+      
+      # Performance and rate limiting settings
       - key: ALG_BALANCE_TTL_MS
         value: "60000"
       - key: BUCKETS
@@ -78,8 +104,61 @@ services:
         value: "1000"
       - key: GLOBAL_CALL_BUDGET_5M
         value: "300"
+      
+      # Rate limiting
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: RATE_LIMIT_MAX_TOKENS
+        value: "120"
+      - key: RATE_LIMIT_REFILL_PER_SEC
+        value: "2"
+      - key: RATE_LIMIT_BURST
+        value: "20"
+      
+      # Admin rate limiting
+      - key: ADMIN_RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: ADMIN_RATE_LIMIT_MAX_TOKENS
+        value: "30"
+      - key: ADMIN_RATE_LIMIT_REFILL_PER_SEC
+        value: "1"
+      - key: ADMIN_RATE_LIMIT_BURST
+        value: "5"
+      
+      # IP allowlist for admin endpoints (comma separated)
+      - key: ADMIN_IP_ALLOWLIST
+        value: "127.0.0.1,10.0.0"
+      
+      # DEX settings
       - key: ENABLE_TINYMAN
         value: "true"
       - key: ENABLE_PACT
         value: "false"
+      - key: PACT_API_BASE
+        value: ""
+      
+      # Cache settings
+      - key: REP_V2_TTL_SECS
+        value: "900"
+      - key: LP_SNAPSHOT_TTL_SECS
+        value: "7200"
+      
+      # Discord role IDs (set these in Environment tab with your actual role IDs)
+      - key: ROLE_CITIZEN_ID
+        sync: false
+      - key: ROLE_HODL_SHRIMP_ID
+        sync: false
+      - key: ROLE_HODL_CRAB_ID
+        sync: false
+      - key: ROLE_HODL_FISH_ID
+        sync: false
+      - key: ROLE_HODL_DOLPHIN_ID
+        sync: false
+      - key: ROLE_HODL_SHARK_ID
+        sync: false
+      - key: ROLE_HODL_WHALE_ID
+        sync: false
+      - key: ROLE_HODL_TITAN_ID
+        sync: false
+        
     autoDeploy: true
