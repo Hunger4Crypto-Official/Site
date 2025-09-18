@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://hunger4crypto.com/sitemap.xml
+
+# Allow crawling of articles
+Allow: /articles/
+Allow: /api/og
+
+# Disallow admin/internal endpoints
+Disallow: /api/email/
+Disallow: /_next/
+Disallow: /admin/
+
+# Crawl delay (be nice to our servers)
+Crawl-delay: 1
