@@ -18,8 +18,7 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.0",
     "rehype-stringify": "^10.0.0",
-    "recharts": "^2.12.7",
-    "@h4c/shared": "workspace:*"
+    "recharts": "^2.12.7"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
@@ -37,3 +36,4 @@
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
   }
+}
