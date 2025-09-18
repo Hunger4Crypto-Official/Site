@@ -1,39 +1,96 @@
 {
   "name": "h4c-monorepo",
+  "version": "1.0.0",
   "private": true,
+  "description": "H4C Discord bot and web platform monorepo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/h4c-monorepo.git"
+  },
+  "workspaces": [
+    "shared",
+    "bot",
+    "web"
+  ],
   "scripts": {
-    "install:all": "npm install && npm --prefix web install && npm --prefix bot install && npm --prefix shared install",
+    "install:all": "npm ci && npm --prefix web ci && npm --prefix bot ci && npm --prefix shared ci",
     "dev": "concurrently \"npm --prefix web run dev\" \"npm --prefix bot run dev\"",
-    "build": "npm --prefix web run build",
-    "start": "npm --prefix web run start",
+    
+    "build": "npm run build:shared && npm run build:web && npm run build:bot",
+    "build:shared": "cd shared && npm run build",
+    "build:web": "cd web && npm run build",
+    "build:bot": "cd bot && npm run build",
+    
+    "start": "concurrently \"npm --prefix web run start\" \"npm --prefix bot run start\"",
+    "start:web": "cd web && npm run start",
+    "start:bot": "cd bot && npm run start",
+    
+    "test": "npm run test:shared && npm run test:bot && npm run test:web",
+    "test:shared": "cd shared && npm test",
+    "test:bot": "cd bot && npm test",
+    "test:web": "cd web && npm test",
+    "test:integration": "node tests/smoke.js && node tests/integration-award.js",
+    
+    "lint": "npm run lint:shared && npm run lint:bot && npm run lint:web",
+    "lint:shared": "cd shared && npm run lint",
+    "lint:bot": "cd bot && npm run lint",
+    "lint:web": "cd web && npm run lint",
+    "lint:fix": "npm run lint:shared -- --fix && npm run lint:bot -- --fix && npm run lint:web -- --fix",
+    
+    "type-check": "npm run type-check:web && npm run type-check:bot",
+    "type-check:web": "cd web && npm run type-check",
+    "type-check:bot": "echo \"Bot is JavaScript - no type checking needed\"",
+    
+    "clean": "rm -rf */node_modules */.next */dist node_modules",
+    "clean:cache": "rm -rf */.next/cache */node_modules/.cache",
+    
     "seed:badges": "cd bot && node ../scripts/seed_badges.js",
-    "lint": "npm --prefix web run lint && npm --prefix bot run lint",
-    "lint:fix": "npm --prefix web run lint -- --fix && npm --prefix bot run lint -- --fix",
-    "type-check": "npm --prefix web run type-check && npm --prefix bot run type-check",
-    "test": "node tests/smoke.js && node tests/integration-award.js",
-    "test:unit": "echo \"Add unit tests here\"",
-    "test:integration": "node tests/integration-award.js",
-    "clean": "rm -rf web/.next web/node_modules bot/node_modules shared/node_modules node_modules",
+    
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
+    "docker:restart": "npm run docker:down && npm run docker:up",
+    
+    "deploy:staging": "npm run build && npm run test && docker-compose -f docker-compose.staging.yml up -d",
+    "deploy:prod": "npm run build && npm run test && docker-compose -f docker-compose.prod.yml up -d",
+    
+    "health": "curl -f http://localhost:3000/health && curl -f http://localhost:3001/api/health",
+    
     "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,ts,tsx,json,md}\"",
-    "prepare": "husky install || true"
+    
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:fix": "npm audit fix"
   },
   "devDependencies": {
     "concurrently": "^9.0.0",
     "prettier": "^3.0.0",
     "husky": "^8.0.3",
-    "lint-staged": "^15.0.0"
+    "lint-staged": "^15.0.0",
+    "@commitlint/cli": "^18.0.0",
+    "@commitlint/config-conventional": "^18.0.0"
   },
   "engines": {
     "node": ">=18.18.0",
     "npm": ">=8.0.0"
   },
   "lint-staged": {
-    "*.{js,ts,tsx}": ["eslint --fix"],
-    "*.{js,ts,tsx,json,md}": ["prettier --write"]
+    "*.{js,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "commitlint": {
+    "extends": ["@commitlint/config-conventional"]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
   }
 }
