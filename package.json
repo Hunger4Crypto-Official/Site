@@ -6,13 +6,13 @@
     "install:all": "npm install && npm --prefix web install && npm --prefix bot install && npm --prefix shared install",
     "dev": "concurrently \"npm --prefix web run dev\" \"npm --prefix bot run dev\"",
     "build": "npm --prefix shared run build && npm --prefix web run build && npm --prefix bot run build",
-    "start": "concurrently \"npm --prefix web run start\" \"npm --prefix bot run start\"",
+    "start": "npm --prefix web run start",
     "seed:badges": "node scripts/seed_badges.js",
     "lint": "npm --prefix web run lint && npm --prefix bot run lint",
     "lint:fix": "npm --prefix web run lint -- --fix && npm --prefix bot run lint -- --fix",
     "type-check": "npm --prefix web run type-check && npm --prefix bot run type-check",
     "test": "node tests/smoke.js && node tests/integration-award.js",
-    "test:unit": "echo 'Add unit tests here'",
+    "test:unit": "echo \"Add unit tests here\"",
     "test:integration": "node tests/integration-award.js",
     "clean": "rm -rf web/.next web/node_modules bot/node_modules shared/node_modules node_modules",
     "docker:build": "docker-compose build",
@@ -30,7 +30,7 @@
     "lint-staged": "^15.0.0"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=18.18.0",
     "npm": ">=8.0.0"
   },
   "lint-staged": {
