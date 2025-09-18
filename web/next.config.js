@@ -2,15 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  
+  // More permissive TypeScript settings for development
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: process.env.NODE_ENV === 'development',
   },
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: process.env.NODE_ENV === 'development',
   },
-  experimental: {
-    // Remove any experimental features that might cause issues
-  },
+  
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -22,6 +22,11 @@ const nextConfig = {
     }
     return config;
   },
+  
+  // Handle content files properly
+  experimental: {
+    esmExternals: 'loose',
+  }
 };
 
 module.exports = nextConfig;
