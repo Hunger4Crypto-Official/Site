@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "build": "echo 'No build step needed for bot'",
+    "build": "echo \"No build step needed for bot\"",
     "lint": "eslint src/ --ext .js",
     "lint:fix": "eslint src/ --ext .js --fix",
-    "type-check": "echo 'Bot is JavaScript - no type checking needed'",
+    "type-check": "echo \"Bot is JavaScript - no type checking needed\"",
     "test": "node --test test/*.test.js",
     "test:watch": "node --test --watch test/*.test.js"
   },
@@ -31,7 +31,7 @@
     "@types/jsonwebtoken": "^9.0.2"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=18.18.0",
     "npm": ">=8.0.0"
   }
 }
