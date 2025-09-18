@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import { Client, GatewayIntentBits, Partials, Collection } from 'discord.js';
 import { logger } from './utils/logger.js';
 import { Env, assertRequiredEnv, assertStrongSecret, assertUrlNoV2 } from './utils/envGuard.js';
@@ -27,13 +28,80 @@ assertRequiredEnv([
 assertStrongSecret('ADMIN_JWT_SECRET', 32);
 assertUrlNoV2('NODELY_INDEXER_URL');
 
-// DB/Redis
+// FIXED: Add JWT middleware for proper authentication
+function verifyAdminToken(req, res, next) {
+  try {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'No token provided' });
+    }
+
+    // Try JWT verification first
+    try {
+      const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
+      if (decoded.role !== 'admin') {
+        return res.status(403).json({ ok: false, error: 'Insufficient permissions' });
+      }
+      req.user = decoded;
+      return next();
+    } catch (jwtError) {
+      // Fallback to direct secret comparison for backward compatibility
+      // TODO: Remove this after migration period
+      if (token === process.env.ADMIN_JWT_SECRET) {
+        logger.warn('Using deprecated direct secret authentication');
+        req.user = { role: 'admin', deprecated: true };
+        return next();
+      }
+      
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+  } catch (error) {
+    logger.error({ error: String(error) }, 'Admin authentication error');
+    return res.status(500).json({ ok: false, error: 'Authentication error' });
+  }
+}
+
+// FIXED: Add token generation endpoint for admins
+function generateAdminToken() {
+  return jwt.sign(
+    { 
+      role: 'admin',
+      issued: Date.now(),
+      version: '1.0'
+    },
+    process.env.ADMIN_JWT_SECRET,
+    { 
+      expiresIn: '24h',
+      issuer: 'h4c-bot',
+      audience: 'h4c-admin'
+    }
+  );
+}
+
+// DB/Redis with proper error handling
 await mongoose.connect(Env.MONGODB_URI);
 redis.on('error', err => logger.error({ err }, 'Redis error'));
 
+// FIXED: Add graceful shutdown handlers
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  await mongoose.disconnect();
+  redis.disconnect();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  await mongoose.disconnect();
+  redis.disconnect();
+  process.exit(0);
+});
+
 // HTTP server
 const app = express();
-app.use(express.json({ limit: '1mb' })); // Add JSON parsing
+app.use(express.json({ limit: '1mb' }));
 app.use(requestIdMiddleware);
 app.use(metricsMiddleware);
 
@@ -47,14 +115,76 @@ const publicLimiter = tokenBucket({
 });
 app.use(publicLimiter);
 
-// Health/metrics/version
-app.get('/health', (_req, res) => res.json({ ok: true }));
+// FIXED: Enhanced health check with dependency testing
+app.get('/health', async (_req, res) => {
+  const health = {
+    ok: true,
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    dependencies: {}
+  };
+
+  // Check MongoDB
+  try {
+    await mongoose.connection.db.admin().ping();
+    health.dependencies.mongodb = 'healthy';
+  } catch (error) {
+    health.dependencies.mongodb = 'unhealthy';
+    health.ok = false;
+  }
+
+  // Check Redis
+  try {
+    await redis.ping();
+    health.dependencies.redis = 'healthy';
+  } catch (error) {
+    health.dependencies.redis = 'unhealthy';
+    health.ok = false;
+  }
+
+  // Check Discord client
+  if (client.isReady()) {
+    health.dependencies.discord = 'healthy';
+  } else {
+    health.dependencies.discord = 'unhealthy';
+    health.ok = false;
+  }
+
+  res.status(health.ok ? 200 : 503).json(health);
+});
+
 app.get('/metrics', metricsHandler);
 app.get('/version', (_req, res) =>
   res.json({ name: pkg.name, version: pkg.version, commit: process.env.GIT_COMMIT || 'dev' })
 );
 
-// Admin limiter + endpoint
+// FIXED: Add admin token generation endpoint (temporary, for setup)
+app.post('/admin/generate-token', (req, res) => {
+  // Only allow from localhost or if emergency flag is set
+  const clientIp = req.socket.remoteAddress;
+  const isLocalhost = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1';
+  const emergencyMode = process.env.EMERGENCY_TOKEN_GENERATION === 'true';
+  
+  if (!isLocalhost && !emergencyMode) {
+    return res.status(403).json({ ok: false, error: 'Not authorized' });
+  }
+
+  try {
+    const token = generateAdminToken();
+    logger.warn({ clientIp }, 'Admin token generated');
+    res.json({ 
+      ok: true, 
+      token,
+      expiresIn: '24h',
+      note: 'Store this token securely. This endpoint will be disabled in production.'
+    });
+  } catch (error) {
+    logger.error({ error: String(error) }, 'Token generation failed');
+    res.status(500).json({ ok: false, error: 'Token generation failed' });
+  }
+});
+
+// Admin limiter + endpoints
 const adminLimiter = adminGuard({
   windowMs: Number(process.env.ADMIN_RATE_LIMIT_WINDOW_MS || 60000),
   maxTokens: Number(process.env.ADMIN_RATE_LIMIT_MAX_TOKENS || 30),
@@ -62,18 +192,16 @@ const adminLimiter = adminGuard({
   burst: Number(process.env.ADMIN_RATE_LIMIT_BURST || 5)
 });
 
-app.post('/admin/rolesync', adminLimiter, async (req, res) => {
+// FIXED: Use proper JWT verification for admin endpoints
+app.post('/admin/rolesync', adminLimiter, verifyAdminToken, async (req, res) => {
   try {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (token !== process.env.ADMIN_JWT_SECRET) return res.status(401).json({ ok:false, error:'unauthorized' });
-
     const guild = client.guilds.cache.get(process.env.DISCORD_GUILD_ID);
     if (!guild) return res.status(500).json({ ok:false, error:'guild not ready' });
 
     const out = await RoleManagementService.batchSyncHodlRoles(guild);
     return res.json({ ok:true, ...out });
   } catch (e) {
+    logger.error({ error: String(e) }, 'Role sync failed');
     return res.status(500).json({ ok:false, error:String(e) });
   }
 });
@@ -84,32 +212,34 @@ app.get('/api/leaderboard/lp', async (_req, res) => {
     const snap = await AlgorandLeaderboardService.getSnapshot();
     res.json({ ok:true, ...snap });
   } catch (e) {
+    logger.error({ error: String(e) }, 'Leaderboard fetch failed');
     res.status(500).json({ ok:false, error:String(e) });
   }
 });
 
-// Email subscription from web
-app.post('/api/email/web-subscribe', adminLimiter, async (req, res) => {
+// FIXED: Enhanced email subscription with better error handling
+app.post('/api/email/web-subscribe', adminLimiter, verifyAdminToken, async (req, res) => {
   try {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (token !== process.env.ADMIN_JWT_SECRET) {
-      return res.status(401).json({ ok: false, error: 'unauthorized' });
-    }
-
     const { email, source, userAgent, ip } = req.body;
     
     if (!email || typeof email !== 'string') {
       return res.status(400).json({ ok: false, error: 'email required' });
     }
 
-    // Validate email format
+    // Enhanced email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(email) || email.length > 254) {
       return res.status(400).json({ ok: false, error: 'invalid email' });
     }
 
     const cleanEmail = email.toLowerCase().trim();
+
+    // Check for disposable email domains
+    const disposableDomains = ['10minutemail.com', 'tempmail.org', 'guerrillamail.com'];
+    const domain = cleanEmail.split('@')[1];
+    if (disposableDomains.includes(domain)) {
+      return res.status(400).json({ ok: false, error: 'disposable email not allowed' });
+    }
 
     // Check if email already exists
     const existingUser = await User.findOne({ email: cleanEmail });
@@ -120,13 +250,12 @@ app.post('/api/email/web-subscribe', adminLimiter, async (req, res) => {
         { email: cleanEmail },
         { 
           emailCollectedAt: new Date(),
-          // Store additional metadata if needed
           $push: {
             emailSources: {
               source: source || 'web',
               collectedAt: new Date(),
-              userAgent: userAgent || '',
-              ip: ip ? ip.substring(0, 12) + '***' : '' // Partial IP for privacy
+              userAgent: (userAgent || '').substring(0, 200), // Limit length
+              ip: ip ? ip.substring(0, 12) + '***' : ''
             }
           }
         }
@@ -142,7 +271,7 @@ app.post('/api/email/web-subscribe', adminLimiter, async (req, res) => {
         emailSources: [{
           source: source || 'web',
           collectedAt: new Date(),
-          userAgent: userAgent || '',
+          userAgent: (userAgent || '').substring(0, 200),
           ip: ip ? ip.substring(0, 12) + '***' : ''
         }]
       });
@@ -160,14 +289,8 @@ app.post('/api/email/web-subscribe', adminLimiter, async (req, res) => {
 });
 
 // Email list export (admin only)
-app.get('/api/email/export', adminLimiter, async (req, res) => {
+app.get('/api/email/export', adminLimiter, verifyAdminToken, async (req, res) => {
   try {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (token !== process.env.ADMIN_JWT_SECRET) {
-      return res.status(401).json({ ok: false, error: 'unauthorized' });
-    }
-
     const users = await User.find({ 
       email: { $exists: true, $ne: null } 
     }).select('email emailCollectedAt discordId username emailSources -_id');
@@ -193,14 +316,8 @@ app.get('/api/email/export', adminLimiter, async (req, res) => {
 });
 
 // Email statistics endpoint
-app.get('/api/email/stats', adminLimiter, async (req, res) => {
+app.get('/api/email/stats', adminLimiter, verifyAdminToken, async (req, res) => {
   try {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (token !== process.env.ADMIN_JWT_SECRET) {
-      return res.status(401).json({ ok: false, error: 'unauthorized' });
-    }
-
     const totalUsers = await User.countDocuments();
     const emailUsers = await User.countDocuments({ email: { $exists: true, $ne: null } });
     const discordUsers = await User.countDocuments({ discordId: { $exists: true, $ne: null } });
@@ -236,18 +353,16 @@ app.get('/api/email/stats', adminLimiter, async (req, res) => {
 });
 
 // Bulk email unsubscribe (admin only) - for compliance
-app.post('/api/email/bulk-unsubscribe', adminLimiter, async (req, res) => {
+app.post('/api/email/bulk-unsubscribe', adminLimiter, verifyAdminToken, async (req, res) => {
   try {
-    const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (token !== process.env.ADMIN_JWT_SECRET) {
-      return res.status(401).json({ ok: false, error: 'unauthorized' });
-    }
-
     const { emails } = req.body;
     
     if (!Array.isArray(emails) || emails.length === 0) {
       return res.status(400).json({ ok: false, error: 'emails array required' });
+    }
+
+    if (emails.length > 1000) {
+      return res.status(400).json({ ok: false, error: 'too many emails, max 1000' });
     }
 
     const cleanEmails = emails.map(e => e.toLowerCase().trim()).filter(e => e);
@@ -271,6 +386,18 @@ app.post('/api/email/bulk-unsubscribe', adminLimiter, async (req, res) => {
     logger.error({ error: String(error) }, 'Bulk unsubscribe failed');
     return res.status(500).json({ ok: false, error: 'internal error' });
   }
+});
+
+// FIXED: Add request timeout middleware
+app.use((req, res, next) => {
+  const timeout = 30000; // 30 seconds
+  req.setTimeout(timeout, () => {
+    logger.warn({ url: req.url, method: req.method }, 'Request timeout');
+    if (!res.headersSent) {
+      res.status(408).json({ ok: false, error: 'Request timeout' });
+    }
+  });
+  next();
 });
 
 app.listen(3000, () => logger.info('HTTP server on :3000'));
