@@ -1,28 +1,86 @@
 version: '3.9'
-services:
-  web:
-    build: ./web
-    command: npm run start
-    environment:
-      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
-      - ALGO_USD_FALLBACK=${ALGO_USD_FALLBACK}
-    ports: [ "3001:3001" ]
-    depends_on: [ bot ]
 
+networks:
+  h4c-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+services:
+  # MongoDB for user data, badges, email subscriptions
+  mongodb:
+    image: mongo:7.0
+    container_name: h4c-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-password123}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-h4c}
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    networks:
+      - h4c-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # Redis for caching, rate limiting, and auto-awards locks
+  redis:
+    image: redis:7.2-alpine
+    container_name: h4c-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - h4c-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # Discord bot service
   bot:
     build: ./bot
+    container_name: h4c-bot
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
-      - MONGODB_URI=${MONGODB_URI}
-      - REDIS_URL=${REDIS_URL}
+      # Database connections
+      - MONGODB_URI=mongodb://${MONGODB_ROOT_USER:-admin}:${MONGODB_ROOT_PASSWORD:-password123}@mongodb:27017/${MONGODB_DATABASE:-h4c}?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      
+      # Discord configuration
       - BOT_TOKEN=${BOT_TOKEN}
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET}
+      
+      # Blockchain APIs
       - NODELY_INDEXER_URL=${NODELY_INDEXER_URL}
       - NODELY_INDEXER_API_KEY=${NODELY_INDEXER_API_KEY}
       - ALGORAND_NODE_URL=${ALGORAND_NODE_URL}
       - TINYMAN_API=${TINYMAN_API}
       - ETHEREUM_RPC_URL=${ETHEREUM_RPC_URL}
       - SOLANA_RPC_URL=${SOLANA_RPC_URL}
+      
+      # Discord roles
       - ROLE_CITIZEN_ID=${ROLE_CITIZEN_ID}
       - ROLE_HODL_SHRIMP_ID=${ROLE_HODL_SHRIMP_ID}
       - ROLE_HODL_CRAB_ID=${ROLE_HODL_CRAB_ID}
@@ -31,12 +89,16 @@ services:
       - ROLE_HODL_SHARK_ID=${ROLE_HODL_SHARK_ID}
       - ROLE_HODL_WHALE_ID=${ROLE_HODL_WHALE_ID}
       - ROLE_HODL_TITAN_ID=${ROLE_HODL_TITAN_ID}
+      
+      # Performance tuning
       - ALG_BALANCE_TTL_MS=${ALG_BALANCE_TTL_MS}
       - BUCKETS=${BUCKETS}
       - BUCKET_PERIOD_MIN=${BUCKET_PERIOD_MIN}
       - SCAN_CONCURRENCY=${SCAN_CONCURRENCY}
       - SCAN_SPACING_MS=${SCAN_SPACING_MS}
       - GLOBAL_CALL_BUDGET_5M=${GLOBAL_CALL_BUDGET_5M}
+      
+      # Rate limiting
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS}
       - RATE_LIMIT_MAX_TOKENS=${RATE_LIMIT_MAX_TOKENS}
       - RATE_LIMIT_REFILL_PER_SEC=${RATE_LIMIT_REFILL_PER_SEC}
@@ -46,9 +108,50 @@ services:
       - ADMIN_RATE_LIMIT_REFILL_PER_SEC=${ADMIN_RATE_LIMIT_REFILL_PER_SEC}
       - ADMIN_RATE_LIMIT_BURST=${ADMIN_RATE_LIMIT_BURST}
       - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST}
+      
+      # DEX settings
       - ENABLE_TINYMAN=${ENABLE_TINYMAN}
       - ENABLE_PACT=${ENABLE_PACT}
       - PACT_API_BASE=${PACT_API_BASE}
+      
+      # Cache TTLs
       - REP_V2_TTL_SECS=${REP_V2_TTL_SECS}
       - LP_SNAPSHOT_TTL_SECS=${LP_SNAPSHOT_TTL_SECS}
-    ports: [ "3000:3000" ]
+      
+      # App settings
+      - NODE_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ENABLE_HTTP=true
+    ports:
+      - "3000:3000"
+    networks:
+      - h4c-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Next.js web frontend
+  web:
+    build: ./web
+    container_name: h4c-web
+    restart: unless-stopped
+    depends_on:
+      bot:
+        condition: service_healthy
+    environment:
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+      - ALGO_USD_FALLBACK=${ALGO_USD_FALLBACK}
+      - NODE_ENV=production
+    ports:
+      - "3001:3001"
+    networks:
+      - h4c-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
