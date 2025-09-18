@@ -5,9 +5,9 @@
   "scripts": {
     "install:all": "npm install && npm --prefix web install && npm --prefix bot install && npm --prefix shared install",
     "dev": "concurrently \"npm --prefix web run dev\" \"npm --prefix bot run dev\"",
-    "build": "npm --prefix shared run build && npm --prefix web run build && npm --prefix bot run build",
+    "build": "npm --prefix web run build",
     "start": "npm --prefix web run start",
-    "seed:badges": "node scripts/seed_badges.js",
+    "seed:badges": "cd bot && node ../scripts/seed_badges.js",
     "lint": "npm --prefix web run lint && npm --prefix bot run lint",
     "lint:fix": "npm --prefix web run lint -- --fix && npm --prefix bot run lint -- --fix",
     "type-check": "npm --prefix web run type-check && npm --prefix bot run type-check",
