@@ -24,16 +24,24 @@ export const getStaticPaths: GetStaticPaths = async () => {
     const paths = articles.map((a) => ({ params: { slug: a.slug } }));
     
     console.log(`Generated ${paths.length} static paths for articles`);
+    
+    // Use blocking fallback to handle missing articles gracefully
     return {
       paths,
-      fallback: false
+      fallback: 'blocking'
     };
   } catch (error) {
     console.error('Error in getStaticPaths:', error);
-    // Return empty paths rather than failing
+    
+    // Return minimal paths to prevent build failure
+    // Fallback will handle missing articles at runtime
     return {
-      paths: [],
-      fallback: false
+      paths: [
+        { params: { slug: 'foreword' } },
+        { params: { slug: 'bitcoin' } },
+        { params: { slug: 'ethereum' } }
+      ],
+      fallback: 'blocking'
     };
   }
 };
@@ -50,9 +58,27 @@ export const getStaticProps: GetStaticProps<Props> = async (ctx) => {
     }
     
     console.log(`Successfully generated static props for article: ${slug}`);
-    return { props: { article }, revalidate: 86400 };
+    return { 
+      props: { article }, 
+      revalidate: 86400 // 24 hours
+    };
   } catch (error) {
     console.error(`Error in getStaticProps for article ${slug}:`, error);
-    return { notFound: true };
+    
+    // Return a fallback article to prevent page errors
+    return {
+      props: {
+        article: {
+          slug,
+          title: `Error Loading: ${slug}`,
+          description: "This article is temporarily unavailable.",
+          sections: [{
+            heading: "Content Unavailable",
+            body: "This article could not be loaded. Please try again later."
+          }]
+        }
+      },
+      revalidate: 60 // Retry in 1 minute
+    };
   }
 };
