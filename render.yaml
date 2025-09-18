@@ -25,23 +25,22 @@ services:
         value: https://hunger4crypto.com
       - key: ALGO_USD_FALLBACK
         value: "0.20"
-      # Optional – adjust/remove if frontend calls your bot API
+      # Optional – remove or point to a real URL if your web calls a bot API
       - key: BOT_API_URL
         value: "http://localhost:3000"
     autoDeploy: true
 
-  # === Bot Worker (Discord, Mongo, Redis, etc.) ===
+  # === Bot Worker (Discord) ===
   - type: worker
     name: h4c-bot
     env: node
     rootDir: bot
     buildCommand: |
-      echo "=== Starting Bot Build ===" &&
-      echo "Node version:" && node --version &&
-      echo "NPM version:" && npm --version &&
-      echo "Installing dependencies..." &&
-      npm ci &&
-      echo "=== Bot Build Complete ==="
+      echo "=== Bot Build ===" &&
+      node --version && npm --version &&
+      echo "Installing dependencies (no lockfile)..." &&
+      npm install --omit=dev &&
+      echo "=== Bot Build Done ==="
     startCommand: "npm start"
     envVars:
       - key: NODE_ENV
@@ -49,7 +48,7 @@ services:
       - key: LOG_LEVEL
         value: info
 
-      # === Secrets (set via Render dashboard, not in repo) ===
+      # Secrets (set these in Render → Environment)
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL
@@ -61,7 +60,7 @@ services:
       - key: ADMIN_JWT_SECRET
         sync: false
 
-      # === Optional RPC/API keys ===
+      # Optional RPC/API keys
       - key: NODELY_INDEXER_API_KEY
         sync: false
       - key: ETHEREUM_RPC_URL
@@ -69,7 +68,7 @@ services:
       - key: SOLANA_RPC_URL
         sync: false
 
-      # === Defaults to prevent crashes ===
+      # Defaults / other config
       - key: ALGORAND_NODE_URL
         value: "https://mainnet-api.algonode.cloud"
       - key: NODELY_INDEXER_URL
@@ -77,7 +76,7 @@ services:
       - key: TINYMAN_API
         value: "https://mainnet.analytics.tinyman.org/api/v1"
 
-      # === Performance tuning ===
+      # Perf + rate limiting (keep/tune as needed)
       - key: ALG_BALANCE_TTL_MS
         value: "60000"
       - key: BUCKETS
@@ -90,8 +89,6 @@ services:
         value: "1000"
       - key: GLOBAL_CALL_BUDGET_5M
         value: "300"
-
-      # === Rate limiting ===
       - key: RATE_LIMIT_WINDOW_MS
         value: "60000"
       - key: RATE_LIMIT_MAX_TOKENS
@@ -100,8 +97,6 @@ services:
         value: "2"
       - key: RATE_LIMIT_BURST
         value: "20"
-
-      # === Admin rate limiting ===
       - key: ADMIN_RATE_LIMIT_WINDOW_MS
         value: "60000"
       - key: ADMIN_RATE_LIMIT_MAX_TOKENS
@@ -110,26 +105,18 @@ services:
         value: "1"
       - key: ADMIN_RATE_LIMIT_BURST
         value: "5"
-
-      # === Admin IP allowlist ===
       - key: ADMIN_IP_ALLOWLIST
         value: "127.0.0.1,10.0.0"
-
-      # === DEX settings ===
       - key: ENABLE_TINYMAN
         value: "true"
       - key: ENABLE_PACT
         value: "false"
       - key: PACT_API_BASE
         value: ""
-
-      # === Cache settings ===
       - key: REP_V2_TTL_SECS
         value: "900"
       - key: LP_SNAPSHOT_TTL_SECS
         value: "7200"
-
-      # === Discord Role IDs ===
       - key: ROLE_CITIZEN_ID
         sync: false
       - key: ROLE_HODL_SHRIMP_ID
