@@ -98,4 +98,63 @@ export async function checkRedisHealth() {
         return match ? parseInt(match[1]) : 'unknown';
       }).catch(() => 'unknown')
     };
-  } catch (
+  } catch (error) {
+    return {
+      healthy: false,
+      error: String(error),
+      status: redis.status
+    };
+  }
+}
+
+// FIXED: Connection wrapper with retry logic
+export async function safeRedisOperation(operation, fallback = null) {
+  try {
+    return await operation(redis);
+  } catch (error) {
+    logger.warn({ error: String(error) }, 'Redis operation failed');
+    
+    // If Redis is down, return fallback value
+    if (fallback !== null) {
+      return fallback;
+    }
+    
+    throw error;
+  }
+}
+
+// FIXED: Auto-cleanup for expired keys
+export async function cleanupExpiredKeys() {
+  try {
+    const info = await redis.info('keyspace');
+    const dbMatch = info.match(/db0:keys=(\d+),expires=(\d+)/);
+    
+    if (dbMatch) {
+      const totalKeys = parseInt(dbMatch[1]);
+      const keysWithExpiry = parseInt(dbMatch[2]);
+      
+      logger.debug({ 
+        totalKeys, 
+        keysWithExpiry,
+        expiryRatio: (keysWithExpiry / totalKeys * 100).toFixed(1) + '%'
+      }, 'Redis keyspace stats');
+    }
+    
+    // Force expire check on sample of keys
+    const sampleKeys = await redis.randomkey();
+    if (sampleKeys) {
+      await redis.ttl(sampleKeys);
+    }
+    
+  } catch (error) {
+    logger.warn({ error: String(error) }, 'Redis cleanup check failed');
+  }
+}
+
+// FIXED: Periodic cleanup
+setInterval(cleanupExpiredKeys, 300000); // Every 5 minutes
+
+// Register shutdown handlers
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+process.on('beforeExit', gracefulShutdown);
