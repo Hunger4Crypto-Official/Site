@@ -1,5 +1,5 @@
 import { CrossChainService } from '../../services/crossChainService.js';
-import { criteria } from '../../../shared/criteria.js';
+import { criteria } from '../../../../shared/criteria.js';
 
 export async function profileHandler(interaction) {
   await interaction.deferReply({ ephemeral: true });
