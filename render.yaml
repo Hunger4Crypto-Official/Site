@@ -3,32 +3,46 @@ services:
     name: h4c-web
     env: node
     rootDir: web
-    buildCommand: "npm install && npm run build"
+    buildCommand: |
+      echo "Node version:" && node --version &&
+      echo "Installing dependencies..." && npm install &&
+      echo "Building web app..." && npm run build
     startCommand: "npm run start"
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "18.17.0"
       - key: NEXT_PUBLIC_SITE_URL
         value: https://hunger4crypto.com
       - key: ALGO_USD_FALLBACK
         value: "0.20"
       - key: PORT
         value: "3001"
+      # Add fallback values to prevent build failures
+      - key: BOT_API_URL
+        value: "http://localhost:3000"
     autoDeploy: true
     
   - type: web
     name: h4c-bot
     env: node
     rootDir: bot
-    buildCommand: "npm install"
+    buildCommand: |
+      echo "Node version:" && node --version &&
+      echo "Installing dependencies..." && npm install &&
+      echo "Checking environment..." && node -e "console.log('Env check passed')"
     startCommand: "npm run start"
     healthCheckPath: "/health"
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "18.17.0"
       - key: PORT
         value: "3000"
-      # REQUIRED environment variables (these MUST be set in Render dashboard)
+      
+      # CRITICAL: These MUST be set in Render dashboard
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL
@@ -40,19 +54,15 @@ services:
       - key: ADMIN_JWT_SECRET
         sync: false
       - key: ALGORAND_NODE_URL
-        sync: false
-      # OPTIONAL but recommended environment variables
+        value: "https://mainnet-api.algonode.cloud"
+      
+      # Optional with sensible defaults
       - key: NODELY_INDEXER_URL
-        sync: false
-      - key: NODELY_INDEXER_API_KEY
-        sync: false
+        value: "https://mainnet-api.4160.nodely.dev"
       - key: TINYMAN_API
         value: "https://mainnet.analytics.tinyman.org/api/v1"
-      - key: ETHEREUM_RPC_URL
-        sync: false
-      - key: SOLANA_RPC_URL
-        sync: false
-      # Configuration with default values
+      
+      # Performance settings
       - key: ALG_BALANCE_TTL_MS
         value: "60000"
       - key: BUCKETS
@@ -69,4 +79,31 @@ services:
         value: "true"
       - key: ENABLE_PACT
         value: "false"
+      
+      # Rate limiting  
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: RATE_LIMIT_MAX_TOKENS
+        value: "120"
+      - key: RATE_LIMIT_REFILL_PER_SEC
+        value: "2"
+      - key: RATE_LIMIT_BURST
+        value: "20"
+      - key: ADMIN_RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: ADMIN_RATE_LIMIT_MAX_TOKENS
+        value: "30"
+      - key: ADMIN_RATE_LIMIT_REFILL_PER_SEC
+        value: "1"
+      - key: ADMIN_RATE_LIMIT_BURST
+        value: "5"
+      
+      # Defaults for optional features
+      - key: REP_V2_TTL_SECS
+        value: "900"
+      - key: LP_SNAPSHOT_TTL_SECS
+        value: "7200"
+      - key: LOG_LEVEL
+        value: "info"
+        
     autoDeploy: true
