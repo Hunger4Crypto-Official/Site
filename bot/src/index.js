@@ -18,6 +18,9 @@ import { RoleManagementService } from './services/roleManagementService.js';
 import { AlgorandLeaderboardService } from './services/algorandLeaderboardService.js';
 import { User } from './database/models.js';
 
+// Import GM responses!
+import { gmResponses, randomFrom } from './utils/botResponses.js';
+
 /* --------------------------- Enhanced Error Handling --------------------------- */
 process.on('uncaughtException', (error) => {
   logger.error(error, '🚨 Uncaught Exception');
@@ -507,6 +510,20 @@ client.on('warn', (warning) => {
 client.on('debug', (info) => {
   if (process.env.LOG_LEVEL === 'debug') {
     logger.debug(info, 'Discord debug');
+  }
+});
+
+// ----------- GM auto-reply handler -----------
+client.on('messageCreate', async (message) => {
+  if (
+    message.author.bot ||
+    !message.guild ||
+    message.channel.type !== 0 // Only reply in text channels
+  ) return;
+
+  if (/^gm\b/i.test(message.content.trim())) {
+    // Reply with a random GM response
+    await message.reply(randomFrom(gmResponses));
   }
 });
 
