@@ -71,6 +71,16 @@ services:
       - BOT_TOKEN=${BOT_TOKEN}
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      
+      # Feature flags
+      - ENABLE_ADVANCED_LOGGING=${ENABLE_ADVANCED_LOGGING:-true}
+      - ENABLE_METRICS=${ENABLE_METRICS:-true}
+      - ENABLE_RATE_LIMITING=${ENABLE_RATE_LIMITING:-true}
+      - ENABLE_AUTO_AWARDS=${ENABLE_AUTO_AWARDS:-true}
+      - ENABLE_REDIS=${ENABLE_REDIS:-true}
+      - ENABLE_ROLE_MANAGEMENT=${ENABLE_ROLE_MANAGEMENT:-true}
+      - ENABLE_LEADERBOARDS=${ENABLE_LEADERBOARDS:-true}
       
       # Blockchain APIs
       - NODELY_INDEXER_URL=${NODELY_INDEXER_URL}
@@ -91,37 +101,27 @@ services:
       - ROLE_HODL_TITAN_ID=${ROLE_HODL_TITAN_ID}
       
       # Performance tuning
-      - ALG_BALANCE_TTL_MS=${ALG_BALANCE_TTL_MS}
-      - BUCKETS=${BUCKETS}
-      - BUCKET_PERIOD_MIN=${BUCKET_PERIOD_MIN}
-      - SCAN_CONCURRENCY=${SCAN_CONCURRENCY}
-      - SCAN_SPACING_MS=${SCAN_SPACING_MS}
-      - GLOBAL_CALL_BUDGET_5M=${GLOBAL_CALL_BUDGET_5M}
+      - ALG_BALANCE_TTL_MS=${ALG_BALANCE_TTL_MS:-300000}
+      - BUCKETS=${BUCKETS:-100}
+      - BUCKET_PERIOD_MIN=${BUCKET_PERIOD_MIN:-60}
+      - SCAN_CONCURRENCY=${SCAN_CONCURRENCY:-10}
+      - SCAN_SPACING_MS=${SCAN_SPACING_MS:-1000}
+      - GLOBAL_CALL_BUDGET_5M=${GLOBAL_CALL_BUDGET_5M:-1000}
       
       # Rate limiting
-      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS}
-      - RATE_LIMIT_MAX_TOKENS=${RATE_LIMIT_MAX_TOKENS}
-      - RATE_LIMIT_REFILL_PER_SEC=${RATE_LIMIT_REFILL_PER_SEC}
-      - RATE_LIMIT_BURST=${RATE_LIMIT_BURST}
-      - ADMIN_RATE_LIMIT_WINDOW_MS=${ADMIN_RATE_LIMIT_WINDOW_MS}
-      - ADMIN_RATE_LIMIT_MAX_TOKENS=${ADMIN_RATE_LIMIT_MAX_TOKENS}
-      - ADMIN_RATE_LIMIT_REFILL_PER_SEC=${ADMIN_RATE_LIMIT_REFILL_PER_SEC}
-      - ADMIN_RATE_LIMIT_BURST=${ADMIN_RATE_LIMIT_BURST}
-      - ADMIN_IP_ALLOWLIST=${ADMIN_IP_ALLOWLIST}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-60000}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-30}
       
       # DEX settings
-      - ENABLE_TINYMAN=${ENABLE_TINYMAN}
-      - ENABLE_PACT=${ENABLE_PACT}
+      - ENABLE_TINYMAN=${ENABLE_TINYMAN:-true}
+      - ENABLE_PACT=${ENABLE_PACT:-false}
       - PACT_API_BASE=${PACT_API_BASE}
       
-      # Cache TTLs
-      - REP_V2_TTL_SECS=${REP_V2_TTL_SECS}
-      - LP_SNAPSHOT_TTL_SECS=${LP_SNAPSHOT_TTL_SECS}
-      
       # App settings
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - ENABLE_HTTP=true
+      - ENABLE_HTTP=${ENABLE_HTTP:-true}
+      - PORT=3000
     ports:
       - "3000:3000"
     networks:
@@ -133,18 +133,15 @@ services:
       retries: 3
       start_period: 60s
 
-  # Next.js web frontend
+  # Next.js web application
   web:
     build: ./web
     container_name: h4c-web
     restart: unless-stopped
-    depends_on:
-      bot:
-        condition: service_healthy
     environment:
-      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
-      - ALGO_USD_FALLBACK=${ALGO_USD_FALLBACK}
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3001
+      - BOT_API_URL=http://bot:3000
     ports:
       - "3001:3001"
     networks:
