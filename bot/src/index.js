@@ -19,7 +19,12 @@ import { AlgorandLeaderboardService } from './services/algorandLeaderboardServic
 import { User } from './database/models.js';
 
 // Import GM responses!
-import { gmResponses, randomFrom } from './utils/botResponses.js';
+import { gmResponses, randomFrom, cryptoJokes, techFacts } from './utils/botResponses.js';
+import { Settings } from './utils/settings.js';
+import { PersonalityService } from './services/personalityService.js';
+import { CommunityEngagementService } from './services/communityEngagementService.js';
+import { RandomChatterService } from './services/randomChatterService.js';
+import { CommandRegistry } from './services/commandRegistry.js';
 
 /* --------------------------- Enhanced Error Handling --------------------------- */
 process.on('uncaughtException', (error) => {
@@ -52,6 +57,15 @@ if (process.env.ALGORAND_NODE_URL) {
   assertUrlNoV2('ALGORAND_NODE_URL');
 }
 
+const GN_RESPONSES = [
+  'Power down, hero. Tomorrow needs your chaos. 🌙',
+  'Rest up—your GM streak needs fuel. 😴',
+  'Logging you out of reality for the night. 🔒',
+  'Sweet dreams, legend. May your bags moon while you nap. 💫',
+  'Night watch disengaged. Go recharge. 💤',
+  'Dream in memes and manifest in pumps. 🌌'
+];
+
 /* --------------------------- Discord Client Setup --------------------------- */
 const client = new Client({
   intents: [
@@ -69,6 +83,7 @@ const client = new Client({
 });
 
 client.slashCommands = new Collection();
+let commandRegistry;
 
 /* --------------------------- Express Server Setup --------------------------- */
 const app = express();
@@ -455,13 +470,17 @@ app.get('/api/leaderboard/:type', async (req, res) => {
 /* --------------------------- Discord Event Handlers --------------------------- */
 
 client.once('ready', async () => {
-  logger.info({ 
-    user: client.user.tag, 
+  logger.info({
+    user: client.user.tag,
     guilds: client.guilds.cache.size,
     users: client.users.cache.size,
     ping: client.ws.ping
   }, 'Discord bot ready 🚀');
-  
+
+  CommunityEngagementService.initialize(client);
+  RandomChatterService.initialize(client);
+  commandRegistry = new CommandRegistry(client);
+
   // Load slash commands
   try {
     await loadSlashCommands(client);
@@ -479,7 +498,7 @@ client.once('ready', async () => {
   }
   
   // Initialize role management service
-  if (RoleManagementService) {
+  if (RoleManagementService?.initialize) {
     try {
       await RoleManagementService.initialize();
       logger.info('Role management service initialized');
@@ -487,9 +506,9 @@ client.once('ready', async () => {
       logger.error(error, 'Failed to initialize role management');
     }
   }
-  
+
   // Initialize leaderboard service
-  if (AlgorandLeaderboardService) {
+  if (AlgorandLeaderboardService?.initialize) {
     try {
       await AlgorandLeaderboardService.initialize();
       logger.info('Algorand leaderboard service initialized');
@@ -513,17 +532,84 @@ client.on('debug', (info) => {
   }
 });
 
+client.on('guildMemberAdd', async (member) => {
+  try {
+    await CommunityEngagementService.ensureUser(member.user);
+  } catch (error) {
+    logger.error({ error: String(error), member: member.id }, 'Failed to ensure user on join');
+  }
+
+  const channelId = Settings.welcomeChannelId;
+  if (!channelId) return;
+
+  const channel = await CommunityEngagementService.resolveChannel(channelId);
+  if (!channel) return;
+
+  try {
+    await channel.send(PersonalityService.welcomeMessage(member));
+  } catch (error) {
+    logger.error({ error: String(error), member: member.id }, 'Failed to send welcome message');
+  }
+});
+
 // ----------- GM auto-reply handler -----------
 client.on('messageCreate', async (message) => {
   if (
     message.author.bot ||
     !message.guild ||
-    message.channel.type !== 0 // Only reply in text channels
+    message.channel?.type !== 0
   ) return;
 
-  if (/^gm\b/i.test(message.content.trim())) {
-    // Reply with a random GM response
-    await message.reply(randomFrom(gmResponses));
+  const content = message.content?.trim();
+  if (!content) return;
+
+  const userRecord = await CommunityEngagementService.recordMessage(message);
+  if (userRecord?.shadowbanned) return;
+
+  if (commandRegistry && content.startsWith(Settings.prefix || '!')) {
+    const handled = await commandRegistry.handle(message, userRecord);
+    if (handled) return;
+  }
+
+  const normalized = content.toLowerCase();
+
+  if (/^gm\b/.test(normalized)) {
+    const result = await CommunityEngagementService.handleGreeting(message, 'gm', userRecord);
+    if (result.updated) {
+      await message.reply(PersonalityService.wrap(randomFrom(gmResponses), { user: message.author }));
+      if (result.achievements?.length) {
+        const unlocked = result.achievements.map(a => `**${a.label}**`).join(', ');
+        await message.reply(PersonalityService.wrap(`Achievement unlocked: ${unlocked}`, { user: message.author, noSuffix: true }));
+      }
+    }
+    return;
+  }
+
+  if (/^gn\b/.test(normalized)) {
+    const result = await CommunityEngagementService.handleGreeting(message, 'gn', userRecord);
+    if (result.updated) {
+      await message.reply(PersonalityService.wrap(randomFrom(GN_RESPONSES), { user: message.author }));
+      if (result.achievements?.length) {
+        const unlocked = result.achievements.map(a => `**${a.label}**`).join(', ');
+        await message.reply(PersonalityService.wrap(`Night shift unlocked: ${unlocked}`, { user: message.author, noSuffix: true }));
+      }
+    }
+    return;
+  }
+
+  if (/(who\s+(owns|made|built)|owner|what\s+is\s+your\s+name|who\s+do\s+you\s+belong)/i.test(normalized)) {
+    await message.reply(PersonalityService.ownerInfoReply(content));
+    return;
+  }
+
+  if (/(tell me a joke|make me laugh)/i.test(normalized)) {
+    await message.reply(PersonalityService.wrap(randomFrom(cryptoJokes), { user: message.author }));
+    return;
+  }
+
+  if (/(drop a fact|teach me|random fact)/i.test(normalized)) {
+    await message.reply(PersonalityService.wrap(randomFrom(techFacts), { user: message.author }));
+    return;
   }
 });
 
