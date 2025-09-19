@@ -32,7 +32,8 @@ export default function Chart({
   series,
   colors = DEFAULT_COLORS
 }: ChartProps) {
-  const pickY = yKey || (data?.[0] ? Object.keys(data[0]).find(k => k !== xKey) : undefined);
+  // Fix: Ensure we always have a valid dataKey
+  const pickY = yKey || (data?.[0] ? Object.keys(data[0]).find(k => k !== xKey) : "value") || "value";
 
   const common = { 
     data, 
@@ -142,18 +143,22 @@ export default function Chart({
         );
 
       case "scatter":
+        // Fix: Provide proper dataKey values for scatter chart
+        const scatterXKey = series?.[0]?.key || "fee";
+        const scatterYKey = series?.[1]?.key || "speed";
+        
         return (
           <ScatterChart {...common}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis 
               type="number" 
-              dataKey={series?.[0]?.key || "fee"} 
+              dataKey={scatterXKey} 
               stroke={axisColor}
               name="X Value"
             />
             <YAxis 
               type="number" 
-              dataKey={series?.[1]?.key || "speed"} 
+              dataKey={scatterYKey} 
               stroke={axisColor}
               name="Y Value"
             />
@@ -162,7 +167,7 @@ export default function Chart({
               cursor={{ strokeDasharray: '3 3' }}
             />
             <Scatter 
-              dataKey={series?.[1]?.key || "speed"}
+              dataKey={scatterYKey}
               fill={colors[0]}
             />
           </ScatterChart>
@@ -235,6 +240,8 @@ export default function Chart({
         );
 
       case "pie":
+        const pieDataKey = pickY === "value" ? (data[0] && Object.keys(data[0])[1]) || "value" : pickY;
+        
         return (
           <PieChart width={400} height={400}>
             <Pie
@@ -245,7 +252,7 @@ export default function Chart({
               label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
               outerRadius={120}
               fill="#8884d8"
-              dataKey={pickY || "value"}
+              dataKey={pieDataKey}
             >
               {data.map((entry, index) => (
                 <Cell 
