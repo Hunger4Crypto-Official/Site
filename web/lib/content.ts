@@ -4,7 +4,7 @@ import type { Article, Section } from "./types";
 import { mdToHtml } from "./markdown";
 
 // Content lives in content/mega_article/*.json
-const CONTENT_DIR = path.join(process.cwd(), "content", "mega_article");
+const CONTENT_DIR = path.join(process.cwd(), "..", "content", "mega_article");
 
 // FIXED: Build-safe directory listing
 function safeList(dir: string): string[] {
