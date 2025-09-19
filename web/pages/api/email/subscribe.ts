@@ -34,10 +34,10 @@ class SecurityRateLimiter {
       if (!emailResult.allowed) return emailResult;
     }
     
-    return { allowed: true, remaining: this.maxAttempts - ipResult.count };
+    return { allowed: true, remaining: this.maxAttempts - (ipResult.count || 0) };
   }
   
-  private checkIpLimit(ip: string, now: number) {
+  private checkIpLimit(ip: string, now: number): { allowed: boolean; count?: number; retryAfter?: number; reason?: string } {
     let record = this.store.get(ip);
     
     // Clean up expired records
