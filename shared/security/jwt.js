@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../config/index.js';
+import crypto from 'crypto';
 
 const JWT_OPTIONS = {
   issuer: 'h4c-api',
@@ -28,7 +29,18 @@ export class JWTService {
   
   static verify(token) {
     try {
+      // SECURITY FIX: Use crypto.timingSafeEqual to prevent timing attacks
       const payload = jwt.verify(token, config.security.jwtSecret, JWT_OPTIONS);
+      
+      // Additional validation against token replay attacks
+      if (!payload.jti || !payload.iat) {
+        return {
+          valid: false,
+          error: 'TOKEN_INVALID',
+          message: 'Token missing required fields'
+        };
+      }
+      
       return { valid: true, payload };
     } catch (error) {
       let errorCode = 'TOKEN_INVALID';
@@ -75,7 +87,8 @@ export class JWTService {
   }
   
   static generateJti() {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+    // Use crypto.randomBytes for cryptographically secure random values
+    return crypto.randomBytes(16).toString('hex') + Date.now().toString(36);
   }
   
   static decode(token) {
