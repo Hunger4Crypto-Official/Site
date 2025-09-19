@@ -18,6 +18,9 @@ services:
       ls -la &&
       echo "Installing web deps..." &&
       npm ci --no-optional --silent &&
+      echo "=== Installing TypeScript if missing ===" &&
+      npm install --save-dev typescript @types/react @types/react-dom @types/node ||
+      echo "TypeScript already installed or install failed" &&
       echo "=== Checking content directory ===" &&
       ls -la content/ || echo "No content directory at web level" &&
       ls -la ../content/ || echo "No content directory at root level" &&
