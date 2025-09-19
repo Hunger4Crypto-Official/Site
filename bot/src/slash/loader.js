@@ -9,6 +9,9 @@ import { randomFrom, quickQuips, chaosEvents, loreDrops, storyJabs } from '../ut
 
 const commands = [
   new SlashCommandBuilder()
+  .setName('gm')
+  .setDescription('Get a sarcastic/funny GM from the bot!'),
+  new SlashCommandBuilder()
     .setName('profile')
     .setDescription('Show your H4C profile & reputation.'),
   new SlashCommandBuilder()
