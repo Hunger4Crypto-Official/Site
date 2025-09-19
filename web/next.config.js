@@ -5,10 +5,10 @@ const nextConfig = {
   
   // TypeScript and ESLint configuration
   typescript: {
-    ignoreBuildErrors: process.env.NODE_ENV === 'development',
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: process.env.NODE_ENV === 'development',
+    ignoreDuringBuilds: false,
   },
   
   // Webpack configuration for Node.js modules
@@ -26,49 +26,29 @@ const nextConfig = {
         querystring: false,
       };
     }
+    
+    // Ignore node_modules warnings
+    config.ignoreWarnings = [
+      { module: /node_modules/ },
+      { file: /node_modules/ },
+    ];
+    
     return config;
   },
   
-  // Image optimization
-  images: {
-    domains: ['example.com'], // Add your image domains here
-    formats: ['image/webp', 'image/avif'],
-  },
-  
-  // Security headers
-  async headers() {
-    return [
-      {
-        source: '/api/:path*',
-        headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-        ],
-      },
-    ];
-  },
-  
-  // Output configuration for static export compatibility
+  // Output configuration
   output: 'standalone',
   
   // Performance optimizations
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn']
+    } : false,
   },
   
-  // Environment variables
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  // Experimental features
+  experimental: {
+    optimizePackageImports: ['recharts'],
   },
 };
 
