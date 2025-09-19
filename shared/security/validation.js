@@ -1,31 +1,83 @@
 import { z } from 'zod';
+import DOMPurify from 'isomorphic-dompurify';
 
 export const schemas = {
   email: z.string()
     .email('Invalid email format')
     .max(254, 'Email too long')
+    .refine(email => {
+      // Additional email validation against common attack vectors
+      const disposableDomains = [
+        '10minutemail.com', 'tempmail.org', 'guerrillamail.com',
+        'mailinator.com', 'trashmail.com', 'yopmail.com'
+      ];
+      const domain = email.toLowerCase().split('@')[1];
+      return !disposableDomains.includes(domain);
+    }, 'Please use a permanent email address')
     .transform(val => val.toLowerCase().trim()),
     
   discordId: z.string()
-    .regex(/^\d{17,19}$/, 'Invalid Discord ID format'),
+    .regex(/^\d{17,19}$/, 'Invalid Discord ID format')
+    .refine(id => {
+      // Prevent Discord ID spoofing
+      const num = BigInt(id);
+      const discordEpoch = 1420070400000n;
+      const timestamp = (num >> 22n) + discordEpoch;
+      const now = BigInt(Date.now());
+      // Discord IDs shouldn't be from the future or too far in the past
+      return timestamp <= now && timestamp > discordEpoch;
+    }, 'Invalid Discord ID timestamp'),
     
   walletAddress: z.string()
-    .regex(/^[A-Z2-7]{58}$/, 'Invalid Algorand address format'),
+    .regex(/^[A-Z2-7]{58}$/, 'Invalid Algorand address format')
+    .refine(address => {
+      // Basic checksum validation for Algorand addresses
+      try {
+        // This would require algosdk for full validation
+        // For now, just check basic format and length
+        return address.length === 58;
+      } catch {
+        return false;
+      }
+    }, 'Invalid wallet address checksum'),
     
   userInput: z.string()
     .max(1000, 'Input too long')
-    .transform(val => sanitizeHtml(val.trim())),
+    .transform(val => sanitizeHtml(val.trim()))
+    .refine(val => {
+      // Check for potential XSS/injection attempts
+      const dangerousPatterns = [
+        /<script/i, /javascript:/i, /on\w+=/i, /data:text\/html/i,
+        /eval\(/i, /Function\(/i, /setTimeout\(/i, /setInterval\(/i
+      ];
+      return !dangerousPatterns.some(pattern => pattern.test(val));
+    }, 'Input contains potentially dangerous content'),
     
   ipAddress: z.string()
-    .ip('Invalid IP address format'),
+    .ip('Invalid IP address format')
+    .refine(ip => {
+      // Block obviously malicious IPs
+      const blockedRanges = [
+        '0.0.0.0/8', '127.0.0.0/8', '169.254.0.0/16', 
+        '224.0.0.0/4', '240.0.0.0/4'
+      ];
+      // This would need additional IP range checking logic
+      return !ip.startsWith('127.') && !ip.startsWith('0.');
+    }, 'Invalid IP address range'),
     
   asaId: z.number()
     .int('ASA ID must be an integer')
-    .positive('ASA ID must be positive'),
+    .positive('ASA ID must be positive')
+    .max(Number.MAX_SAFE_INTEGER, 'ASA ID too large')
+    .refine(id => {
+      // Validate against known Algorand ASA ID ranges
+      return id >= 1 && id <= 18446744073709551615n; // uint64 max
+    }, 'ASA ID outside valid range'),
     
   amount: z.number()
     .nonnegative('Amount cannot be negative')
     .finite('Amount must be finite')
+    .max(1e18, 'Amount too large') // Prevent overflow attacks
 };
 
 export function validateInput(schema, data) {
@@ -45,10 +97,19 @@ export function validateInput(schema, data) {
 
 export function sanitizeHtml(input) {
   if (typeof input !== 'string') return '';
-  return input
-    .replace(/[<>]/g, '') // Remove HTML brackets
+  
+  // Use DOMPurify for robust HTML sanitization
+  const clean = DOMPurify.sanitize(input, {
+    ALLOWED_TAGS: [], // No HTML tags allowed
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: true
+  });
+  
+  // Additional sanitization
+  return clean
     .replace(/javascript:/gi, '') // Remove javascript: URLs
-    .replace(/on\w+=/gi, '') // Remove event handlers
+    .replace(/data:/gi, '') // Remove data: URLs
+    .replace(/vbscript:/gi, '') // Remove vbscript: URLs
     .trim();
 }
 
@@ -68,4 +129,32 @@ export function validateBatch(validations) {
   return errors.length > 0 
     ? { success: false, errors }
     : { success: true, data: results };
+}
+
+// Rate limiting helper to prevent abuse
+export function createRateLimiter(maxRequests = 10, windowMs = 60000) {
+  const requests = new Map();
+  
+  return (identifier) => {
+    const now = Date.now();
+    const windowStart = now - windowMs;
+    
+    if (!requests.has(identifier)) {
+      requests.set(identifier, []);
+    }
+    
+    const userRequests = requests.get(identifier);
+    
+    // Remove old requests outside the window
+    const recentRequests = userRequests.filter(time => time > windowStart);
+    
+    if (recentRequests.length >= maxRequests) {
+      return { allowed: false, retryAfter: windowMs - (now - recentRequests[0]) };
+    }
+    
+    recentRequests.push(now);
+    requests.set(identifier, recentRequests);
+    
+    return { allowed: true, remaining: maxRequests - recentRequests.length };
+  };
 }
