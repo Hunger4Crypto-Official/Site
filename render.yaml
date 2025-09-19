@@ -3,19 +3,34 @@ services:
   - type: web
     name: h4c-web
     env: node
+    plan: starter  # Free tier
     buildCommand: |
+      echo "=== Build Environment Info ===" &&
+      node --version &&
+      npm --version &&
+      pwd &&
+      ls -la &&
       echo "=== Installing root dependencies ===" &&
-      npm ci &&
+      npm ci --no-optional --silent &&
       echo "=== Installing web dependencies ===" &&
       cd web &&
-      npm ci &&
+      pwd &&
+      ls -la &&
+      echo "Installing web deps..." &&
+      npm ci --no-optional --silent &&
+      echo "=== Checking content directory ===" &&
+      ls -la content/ || echo "No content directory at web level" &&
+      ls -la ../content/ || echo "No content directory at root level" &&
+      find . -name "*.json" -path "*/mega_article/*" || echo "No article JSON files found" &&
       echo "=== Building web app ===" &&
       npm run build &&
-      echo "=== Web Build Complete ==="
+      echo "=== Build Complete ==="
     startCommand: cd web && npm start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "10000"
       - key: NEXT_PUBLIC_SITE_URL
         fromService:
           type: web
@@ -29,12 +44,18 @@ services:
   - type: worker
     name: h4c-bot
     env: node
+    plan: starter  # Free tier
     buildCommand: |
+      echo "=== Bot Build Environment ===" &&
+      node --version &&
+      npm --version &&
       echo "=== Installing root dependencies ===" &&
-      npm ci &&
+      npm ci --no-optional --silent &&
       echo "=== Installing bot dependencies ===" &&
       cd bot &&
-      npm ci &&
+      npm ci --no-optional --silent &&
+      echo "=== Checking bot files ===" &&
+      ls -la src/ &&
       echo "=== Bot Build Complete ==="
     startCommand: cd bot && npm start
     envVars:
@@ -44,8 +65,10 @@ services:
         value: info
       - key: ENABLE_HTTP
         value: "false"
+      - key: PORT
+        value: "10000"
 
-      # Secrets (provide in Render UI)
+      # === REQUIRED SECRETS (Set in Render UI) ===
       - key: BOT_TOKEN
         sync: false
       - key: MONGODB_URI
@@ -57,7 +80,7 @@ services:
       - key: ADMIN_JWT_SECRET
         sync: false
 
-      # Optional RPC/API keys
+      # === OPTIONAL API KEYS ===
       - key: NODELY_INDEXER_API_KEY
         sync: false
       - key: ETHEREUM_RPC_URL
@@ -65,7 +88,25 @@ services:
       - key: SOLANA_RPC_URL
         sync: false
 
-      # Safe defaults / tuning
+      # === DISCORD ROLES (Optional) ===
+      - key: ROLE_CITIZEN_ID
+        sync: false
+      - key: ROLE_HODL_SHRIMP_ID
+        sync: false
+      - key: ROLE_HODL_CRAB_ID
+        sync: false
+      - key: ROLE_HODL_FISH_ID
+        sync: false
+      - key: ROLE_HODL_DOLPHIN_ID
+        sync: false
+      - key: ROLE_HODL_SHARK_ID
+        sync: false
+      - key: ROLE_HODL_WHALE_ID
+        sync: false
+      - key: ROLE_HODL_TITAN_ID
+        sync: false
+
+      # === SAFE DEFAULTS ===
       - key: ALGORAND_NODE_URL
         value: "https://mainnet-api.algonode.cloud"
       - key: NODELY_INDEXER_URL
@@ -112,20 +153,4 @@ services:
         value: "900"
       - key: LP_SNAPSHOT_TTL_SECS
         value: "7200"
-      - key: ROLE_CITIZEN_ID
-        sync: false
-      - key: ROLE_HODL_SHRIMP_ID
-        sync: false
-      - key: ROLE_HODL_CRAB_ID
-        sync: false
-      - key: ROLE_HODL_FISH_ID
-        sync: false
-      - key: ROLE_HODL_DOLPHIN_ID
-        sync: false
-      - key: ROLE_HODL_SHARK_ID
-        sync: false
-      - key: ROLE_HODL_WHALE_ID
-        sync: false
-      - key: ROLE_HODL_TITAN_ID
-        sync: false
     autoDeploy: true
