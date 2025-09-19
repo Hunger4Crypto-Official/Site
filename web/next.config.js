@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   
-  // More permissive TypeScript settings for development
+  // TypeScript and ESLint configuration
   typescript: {
     ignoreBuildErrors: process.env.NODE_ENV === 'development',
   },
@@ -11,6 +11,7 @@ const nextConfig = {
     ignoreDuringBuilds: process.env.NODE_ENV === 'development',
   },
   
+  // Webpack configuration for Node.js modules
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -18,15 +19,57 @@ const nextConfig = {
         fs: false,
         path: false,
         crypto: false,
+        buffer: false,
+        stream: false,
+        util: false,
+        url: false,
+        querystring: false,
       };
     }
     return config;
   },
   
-  // Handle content files properly
-  experimental: {
-    esmExternals: 'loose',
-  }
+  // Image optimization
+  images: {
+    domains: ['example.com'], // Add your image domains here
+    formats: ['image/webp', 'image/avif'],
+  },
+  
+  // Security headers
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
+    ];
+  },
+  
+  // Output configuration for static export compatibility
+  output: 'standalone',
+  
+  // Performance optimizations
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  
+  // Environment variables
+  env: {
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  },
 };
 
 module.exports = nextConfig;
