@@ -1,20 +1,22 @@
-import type { ProcessedChartData, Section } from "@/lib/types";
+import type { ChartData, ProcessedChartData, Section } from "@/lib/types";
 import dynamic from "next/dynamic";
 import DOMPurify from "isomorphic-dompurify";
 
 const Chart = dynamic(() => import("./Chart"), { ssr: false });
+
+type ChartEntry = ChartData | ProcessedChartData;
 
 type Props = {
   title: string;
   description?: string;
   coverImage?: string | null;
   sections?: Section[];
-  charts?: ProcessedChartData[];
+  charts?: ChartEntry[];
 };
 
 export default function Article({ title, description, coverImage, sections, charts }: Props) {
   const safeSections: Section[] = Array.isArray(sections) ? sections : [];
-  const safeCharts: ProcessedChartData[] = Array.isArray(charts) ? charts : [];
+  const safeCharts: ChartEntry[] = Array.isArray(charts) ? charts : [];
 
   const toc = safeSections
     .map((s, i) => ({ i, h: s.heading?.trim() }))
@@ -53,20 +55,25 @@ export default function Article({ title, description, coverImage, sections, char
         {safeCharts.length > 0 && (
           <section className="mt-12">
             <h2>Charts &amp; Data</h2>
-            {safeCharts.map((chart, index) => (
-              <Chart
-                key={chart.id || index}
-                type={chart.type}
-                title={chart.title}
-                subtitle={chart.subtitle}
-                data={chart.data}
-                processedData={chart.processedData}
-                xKey={chart.xKey}
-                yKey={chart.yKey}
-                series={chart.series}
-                colors={chart.colors}
-              />
-            ))}
+            {safeCharts.map((chart, index) => {
+              const chartKey =
+                "id" in chart && chart.id ? chart.id : `${chart.title ?? "chart"}-${index}`;
+
+              return (
+                <Chart
+                  key={chartKey}
+                  type={chart.type}
+                  title={chart.title}
+                  subtitle={chart.subtitle}
+                  data={chart.data}
+                  processedData={"processedData" in chart ? chart.processedData : undefined}
+                  xKey={chart.xKey}
+                  yKey={chart.yKey}
+                  series={chart.series}
+                  colors={chart.colors}
+                />
+              );
+            })}
           </section>
         )}
       </article>
