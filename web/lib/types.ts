@@ -1,14 +1,10 @@
-export type Section = {
-  heading?: string;
-  body?: string;
-  bodyMarkdown?: string;
-};
-
-export type Article = {
-  slug: string;
-  title: string;
-  description?: string;
-  coverImage?: string | null;
-  updatedAt?: string | null;
-  sections?: Section[];  // keep optional for resilience
-};
+export type {
+  Article,
+  BaseArticle,
+  ChartData,
+  ChartSeries,
+  ChartType,
+  DashboardUser,
+  RawArticle,
+  Section,
+} from '@h4c/shared/types';

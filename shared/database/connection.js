@@ -41,8 +41,8 @@ class DatabaseConnection {
       });
       
       this.setupEventHandlers();
-      this.isConnected = true
-this.connectionRetries = 0;
+      this.isConnected = true;
+      this.connectionRetries = 0;
       logger.info({ 
         poolSize: config.mongodb.poolSize,
         timeout: config.mongodb.timeout 
