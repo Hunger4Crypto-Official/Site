@@ -29,7 +29,7 @@
     "test:shared": "cd shared && npm test",
     "test:bot": "cd bot && npm test",
     "test:web": "cd web && npm test",
-    "test:integration": "node tests/smoke.js && node tests/integration-award.js",
+    "test:integration": "node tests/smoke.js && node tests/integration-award.js && node tests/integration-markdown.js",
     
     "lint": "npm run lint:shared && npm run lint:bot && npm run lint:web",
     "lint:shared": "cd shared && npm run lint",
