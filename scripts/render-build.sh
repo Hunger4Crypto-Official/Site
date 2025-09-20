@@ -129,6 +129,11 @@ if [ -d "shared" ]; then
   else
     log "No shared lockfile detected, skipping shared dependency installation"
   fi
+npm ci --production=false
+
+if [ -d "shared" ]; then
+  log "Installing shared dependencies"
+  (cd shared && npm ci --production=false || true)
 fi
 
 log "Installing web dependencies"
@@ -143,6 +148,7 @@ NEXT
 fi
 
 run_npm_install "." --production=false
+npm ci --production=false
 
 log "Verifying content accessibility"
 ls -la content/mega_article/ 2>/dev/null || echo "No content dir at web level"
