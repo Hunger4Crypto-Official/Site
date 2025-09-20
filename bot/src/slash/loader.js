@@ -6,11 +6,20 @@ import { emailHandler, emailRemoveHandler, emailStatusHandler } from './suites/e
 import { randomFrom, quickQuips, chaosEvents, loreDrops, storyJabs, gmResponses, cryptoJokes, techFacts, memeVault } from '../utils/botResponses.js';
 import { PersonalityService } from '../services/personalityService.js';
 import { CommunityEngagementService } from '../services/communityEngagementService.js';
+import { logger } from '../utils/logger.js';
+
+function wrapReply(interaction, response, context = {}) {
+  const payload = PersonalityService.wrap(response, { user: interaction.user, ...context });
+  if (typeof payload === 'string') {
+    return interaction.reply({ content: payload, ephemeral: context.ephemeral });
+  }
+  return interaction.reply({ ...payload, ephemeral: context.ephemeral });
+}
 import { createWrapReply } from './wrapReply.js';
 import { logger } from '../utils/logger.js';
 
 const wrapReply = createWrapReply((response, ctx) => PersonalityService.wrap(response, ctx));
- codex/summarize-chatbot-feature-improvements-iurbcj
+main
 
 function buildDefinitions(client) {
   return [
@@ -158,6 +167,14 @@ function buildDefinitions(client) {
         )
         .addSubcommand(subcommand =>
           subcommand
+        )
+        .addSubcommand(subcommand =>
+          subcommand
+            .setName('remove')
+            .setDescription('Remove your email and unsubscribe')
+        )
+        .addSubcommand(subcommand =>
+          subcommand
             .setName('status')
             .setDescription('Check your email subscription status')
         ),
@@ -185,6 +202,11 @@ export async function loadSlashCommands(client) {
   } else if (typeof client.slashCommands.clear === 'function') {
     client.slashCommands.clear();
   }
+
+  for (const def of definitions) {
+    client.slashCommands.set(def.name, def);
+  }
+
 
   for (const def of definitions) {
     client.slashCommands.set(def.name, def);
@@ -225,6 +247,13 @@ export async function loadSlashCommands(client) {
           duration
         }, 'Slash command execution failed (fallback handler)');
 
+        logger.error({
+          error,
+          command: interaction.commandName,
+          user: interaction.user.tag,
+          duration
+        }, 'Slash command execution failed (fallback handler)');
+
         const reply = {
           content: 'There was an error executing this command. Please try again later.',
           ephemeral: true
@@ -256,6 +285,12 @@ function buildDefinitions(client) {
         }
         await wrapReply(interaction, content);
       }
+    });
+
+    client.__h4cSlashHandlerBound = true;
+  }
+
+=======
     },
     {
       name: 'gn',
@@ -323,7 +358,6 @@ function buildDefinitions(client) {
         }
         await wrapReply(interaction, content, { noSuffix: true });
       }
- codex/summarize-chatbot-feature-improvements-iurbcj
     });
 
     client.__h4cSlashHandlerBound = true;
@@ -419,6 +453,5 @@ export async function loadSlashCommands(client) {
     client.slashCommands.set(def.name, def);
   }
 
- main
   logger.info({ count: definitions.length }, 'Slash commands registered');
 }

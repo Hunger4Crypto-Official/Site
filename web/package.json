@@ -8,9 +8,12 @@
     "start": "next start -p $PORT",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+ codex/summarize-chatbot-feature-improvements-evhk5v
+    "test": "npm run lint && npm run type-check",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:jest": "jest",
+main
     "analyze": "ANALYZE=true npm run build",
     "security-check": "npm audit --audit-level=high"
   },

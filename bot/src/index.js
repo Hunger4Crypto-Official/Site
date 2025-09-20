@@ -66,7 +66,6 @@ const GN_RESPONSES = [
   'Dream in memes and manifest in pumps. 🌌'
 ];
 
- codex/summarize-chatbot-feature-improvements-iurbcj
 const OWNER_PATTERNS = [
   /who\s*(?:is|'s)\s*(?:the\s*)?(?:owner|creator)\b.*\b(?:bot|you)/i,
   /who\s*owns\s*(?:this|the\s*bot|you)/i,
@@ -80,7 +79,6 @@ const NAME_PATTERNS = [
   /what\s*do\s*we\s*call\s*you/i
 ];
 
- main
 /* --------------------------- Discord Client Setup --------------------------- */
 const client = new Client({
   intents: [
@@ -99,10 +97,8 @@ const client = new Client({
 
 client.slashCommands = new Collection();
 let commandRegistry;
- codex/summarize-chatbot-feature-improvements-iurbcj
 
 CommunityEngagementService.initialize(client);
- main
 
 /* --------------------------- Express Server Setup --------------------------- */
 const app = express();
@@ -500,7 +496,6 @@ client.once('ready', async () => {
  codex/summarize-chatbot-feature-improvements-iurbcj
   CommunityEngagementService.initialize(client);
   RandomChatterService.initialize(client);
- main
   commandRegistry = new CommandRegistry(client);
 
   // Load slash commands
@@ -560,7 +555,6 @@ client.on('guildMemberAdd', async (member) => {
   try {
     await CommunityEngagementService.ensureUser(member.user);
   } catch (error) {
- codex/summarize-chatbot-feature-improvements-iurbcj
     logger.warn({ error: String(error), memberId: member.id }, 'Failed to ensure user on join');
   }
 
@@ -594,7 +588,6 @@ client.on('guildMemberAdd', async (member) => {
 });
 
 // ----------- GM auto-reply handler -----------
- main
 client.on('messageCreate', async (message) => {
   if (
     message.author.bot ||
@@ -604,8 +597,7 @@ client.on('messageCreate', async (message) => {
 
   const content = message.content?.trim();
   if (!content) return;
-
- codex/summarize-chatbot-feature-improvements-iurbcj
+  
   const lowerContent = content.toLowerCase();
   const addressedToBot = client.user ? message.mentions.users.has(client.user.id) : false;
 
@@ -759,7 +751,6 @@ client.on('messageCreate', async (message) => {
   if (/(drop a fact|teach me|random fact)/i.test(normalized)) {
     await message.reply(PersonalityService.wrap(randomFrom(techFacts), { user: message.author }));
     return;
-main
   }
 });
 

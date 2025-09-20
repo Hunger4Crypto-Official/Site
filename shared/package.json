@@ -7,21 +7,30 @@
   "exports": {
     ".": "./index.js",
     "./config": "./config/index.js",
-    "./security/*": "./security/*.js",
-    "./errors/*": "./errors/*.js",
-    "./cache/*": "./cache/*.js",
-    "./resilience/*": "./resilience/*.js",
-    "./database/*": "./database/*.js",
-    "./utils": "./utils/index.js",
     "./constants": "./constants.js",
-    "./criteria": "./criteria.js"
+    "./criteria": "./criteria.js",
+    "./utils": "./utils.js",
+    "./utils/logger": "./utils/logger.js",
+    "./cache": "./CacheManager.js",
+    "./database/connection": "./database/connection.js",
+    "./database/redis": "./database/redis.js",
+    "./resilience/circuit-breaker": "./resilience/CircuitBreaker.js",
+    "./errors": "./errors/AppError.js",
+    "./errors/handler": "./errors/ErrorHandler.js",
+    "./security/jwt": "./security/jwt.js",
+    "./security/validation": "./security/validation.js"
   },
   "scripts": {
     "build": "echo \"Shared package build complete\"",
+    "test": "node --test test/*.test.js || echo \"No shared tests found\"",
+    "test:watch": "node --test --watch test/*.test.js",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
     "test": "echo \"No tests specified\"",
     "test:watch": "echo \"No tests specified\"",
     "lint": "echo \"No linting configured\"",
     "lint:fix": "echo \"No linting configured\"",
+ main
     "type-check": "echo \"Shared is JavaScript - no type checking needed\""
   },
   "dependencies": {

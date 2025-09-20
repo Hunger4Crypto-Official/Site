@@ -1,6 +1,6 @@
-import { redis } from '../database/redis.js';
-import { logger } from '../utils/logger.js';
-import { config } from '../config/index.js';
+import { redis } from './database/redis.js';
+import { logger } from './utils/logger.js';
+import { config } from './config/index.js';
 
 export class CacheManager {
   constructor() {
