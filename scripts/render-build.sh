@@ -6,6 +6,23 @@ log() {
   echo "=== $* ==="
 }
 
+run_npm_install() {
+  local dir="$1"
+  shift || true
+  local args=("$@")
+
+  local resolved_dir
+  resolved_dir=$(cd "$dir" && pwd)
+
+  if [ -f "$dir/package-lock.json" ] || [ -f "$dir/npm-shrinkwrap.json" ]; then
+    log "Installing dependencies with npm ci in $resolved_dir"
+    (cd "$dir" && npm ci "${args[@]}")
+  else
+    log "No lockfile found in $resolved_dir, running npm install"
+    (cd "$dir" && npm install "${args[@]}")
+  fi
+}
+
 create_sample_content() {
   log "Creating sample content files..."
 
@@ -95,6 +112,23 @@ else
 fi
 
 log "Installing root dependencies"
+if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
+  if ! run_npm_install "." --omit=dev; then
+    log "Root dependency installation failed or is unnecessary, continuing"
+  fi
+else
+  log "No root lockfile detected, skipping root dependency installation"
+fi
+
+if [ -d "shared" ]; then
+  log "Installing shared dependencies"
+  if [ -f "shared/package-lock.json" ] || [ -f "shared/npm-shrinkwrap.json" ]; then
+    if ! run_npm_install "shared" --omit=dev; then
+      log "Shared dependency installation failed, continuing"
+    fi
+  else
+    log "No shared lockfile detected, skipping shared dependency installation"
+  fi
 npm ci --production=false
 
 if [ -d "shared" ]; then
@@ -113,6 +147,7 @@ if [ ! -f "next-env.d.ts" ]; then
 NEXT
 fi
 
+run_npm_install "." --production=false
 npm ci --production=false
 
 log "Verifying content accessibility"

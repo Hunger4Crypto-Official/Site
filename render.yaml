@@ -5,6 +5,7 @@ services:
     env: node
     plan: starter  # Free tier
     buildCommand: ./scripts/render-build.sh
+
     buildCommand: |
       echo "=== H4C Web Build Starting ===" &&
       echo "Node: $(node --version)" &&
@@ -34,6 +35,7 @@ services:
       ls -la content/mega_article/ 2>/dev/null || ls -la ../content/mega_article/ 2>/dev/null || echo "Using fallback content" &&
       npm run build &&
       echo "=== Build Complete ==="
+      
     startCommand: cd web && npm start
     envVars:
       - key: NODE_ENV

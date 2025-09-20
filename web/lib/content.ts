@@ -32,6 +32,7 @@ function resolveContentDirectory(): string {
 
 // Content lives in content/mega_article/*.json, but allow overrides for hosted builds
 const CONTENT_DIR = resolveContentDirectory();
+
 // FIXED: Content directory resolution for Render deployment
 const CONTENT_DIR = (() => {
   // In production/build, content is at web/content/mega_article
