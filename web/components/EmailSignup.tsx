@@ -9,7 +9,11 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+ codex/suggest-improvements-for-web-portion-5xum2w
   const isMountedRef = useRef(true);
+ codex/suggest-improvements-for-web-portion-hqrpi8
+ codex/suggest-improvements-for-web-portion
+ main
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearResetTimer = () => {
@@ -19,6 +23,7 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
     }
   };
 
+ codex/suggest-improvements-for-web-portion-5xum2w
   const runIfMounted = (fn: () => void) => {
     if (isMountedRef.current) {
       fn();
@@ -33,21 +38,56 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
         setMessage("");
         resetTimerRef.current = null;
       });
+
+  const scheduleReset = () => {
+    clearResetTimer();
+    resetTimerRef.current = setTimeout(() => {
+      setStatus("idle");
+      setMessage("");
+      resetTimerRef.current = null;
+main
     }, 5000);
   };
 
   useEffect(() => {
+ codex/suggest-improvements-for-web-portion-5xum2w
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       clearResetTimer();
+    return () => {
+      clearResetTimer();
+ codex/suggest-improvements-for-web-portion-hqrpi8
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearStatusTimeout = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearStatusTimeout();
+ main
     };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+ codex/suggest-improvements-for-web-portion-5xum2w
     clearResetTimer();
 
+
+ codex/suggest-improvements-for-web-portion-hqrpi8
+    clearResetTimer();
+
+codex/suggest-improvements-for-web-portion
+    clearResetTimer();
+
+    clearStatusTimeout();
+ main
     if (!email.trim()) {
       setStatus("error");
       setMessage("Please enter your email address");
@@ -63,7 +103,7 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
     }
 
     setStatus("loading");
-    
+
     try {
       const response = await fetch("/api/email/subscribe", {
         method: "POST",
@@ -106,9 +146,22 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
       });
     }
 
+codex/suggest-improvements-for-web-portion-5xum2w
     if (isMountedRef.current) {
       scheduleReset();
     }
+ codex/suggest-improvements-for-web-portion-hqrpi8
+    scheduleReset();
+
+ codex/suggest-improvements-for-web-portion
+    scheduleReset();
+    // Clear status after 5 seconds
+    timeoutRef.current = setTimeout(() => {
+      setStatus("idle");
+      setMessage("");
+      timeoutRef.current = null;
+    }, 5000);
+ main
   };
 
   return (
