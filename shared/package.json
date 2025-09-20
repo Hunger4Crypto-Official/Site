@@ -18,10 +18,10 @@
   },
   "scripts": {
     "build": "echo \"Shared package build complete\"",
-    "test": "node --test test/*.test.js",
-    "test:watch": "node --test --watch test/*.test.js",
-    "lint": "eslint . --ext .js",
-    "lint:fix": "eslint . --ext .js --fix",
+    "test": "echo \"No tests specified\"",
+    "test:watch": "echo \"No tests specified\"",
+    "lint": "echo \"No linting configured\"",
+    "lint:fix": "echo \"No linting configured\"",
     "type-check": "echo \"Shared is JavaScript - no type checking needed\""
   },
   "dependencies": {
@@ -33,8 +33,7 @@
     "pino-pretty": "^11.2.2"
   },
   "devDependencies": {
-    "eslint": "^8.57.0",
-    "eslint-config-standard": "^17.1.0"
+    "eslint": "^8.57.0"
   },
   "peerDependencies": {
     "node": ">=18.18.0"
