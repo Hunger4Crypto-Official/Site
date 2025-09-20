@@ -18,7 +18,10 @@ services:
       ls -la &&
       echo "Installing web deps..." &&
       npm ci --no-optional --silent --legacy-peer-deps &&
-      echo "=== Installing TypeScript if missing ===" &&
+      echo "=== Creating missing next-env.d.ts ===" &&
+      echo '/// <reference types="next" />' > next-env.d.ts &&
+      echo '/// <reference types="next/image-types/global" />' >> next-env.d.ts &&
+      echo "=== Installing missing TypeScript deps ===" &&
       npm install --save-dev typescript @types/react @types/react-dom @types/node ||
       echo "TypeScript already installed or install failed" &&
       echo "=== Checking content directory ===" &&
