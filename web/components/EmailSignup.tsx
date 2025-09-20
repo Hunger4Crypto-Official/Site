@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type EmailSignupProps = {
   className?: string;
@@ -9,10 +9,16 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (resetTimer.current) {
+      clearTimeout(resetTimer.current);
+      resetTimer.current = null;
+    }
+
     if (!email.trim()) {
       setStatus("error");
       setMessage("Please enter your email address");
@@ -52,13 +58,31 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
       setStatus("error");
       setMessage("Network error. Please try again.");
     }
-
-    // Clear status after 5 seconds
-    setTimeout(() => {
-      setStatus("idle");
-      setMessage("");
-    }, 5000);
   };
+
+  useEffect(() => {
+    if (status === "success" || status === "error") {
+      if (resetTimer.current) {
+        clearTimeout(resetTimer.current);
+      }
+
+      resetTimer.current = setTimeout(() => {
+        setStatus("idle");
+        setMessage("");
+        resetTimer.current = null;
+      }, 5000);
+    } else if (resetTimer.current) {
+      clearTimeout(resetTimer.current);
+      resetTimer.current = null;
+    }
+
+    return () => {
+      if (resetTimer.current) {
+        clearTimeout(resetTimer.current);
+        resetTimer.current = null;
+      }
+    };
+  }, [status]);
 
   return (
     <div className={`bg-slate-800/50 border border-slate-700 rounded-lg p-6 ${className}`}>

@@ -17,10 +17,16 @@ a {
   color: #7dd3fc;
 }
 
-.prose h1, .prose h2, .prose h3 {
+.prose h1,
+.prose h2,
+.prose h3 {
   color: var(--fg);
 }
 
 .prose p {
   color: #bac2d6;
+}
+
+main {
+  min-height: 100vh;
 }

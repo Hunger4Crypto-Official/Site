@@ -1,10 +1,5 @@
 import pino from 'pino';
-
-function redactAddress(s) {
-  if (!s || typeof s !== 'string') return s;
-  if (s.length < 10) return s;
-  return `${s.slice(0, 6)}…${s.slice(-4)}`;
-}
+import { redactAddress } from '../utils.js';
 
 function redactSensitiveData(obj) {
   if (!obj || typeof obj !== 'object') return obj;
