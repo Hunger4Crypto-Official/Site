@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { env } from './environment.js';
 
 const configSchema = z.object({
   mongodb: z.object({
@@ -45,20 +46,20 @@ const configSchema = z.object({
 
 export const config = configSchema.parse({
   mongodb: {
-    uri: process.env.MONGODB_URI,
+    uri: env.MONGODB_URI,
     poolSize: Number(process.env.DB_POOL_SIZE || '10'),
     timeout: Number(process.env.DB_TIMEOUT || '5000')
   },
-  
+
   redis: {
-    url: process.env.REDIS_URL,
+    url: env.REDIS_URL,
     maxRetries: Number(process.env.REDIS_MAX_RETRIES || '3'),
     retryDelay: Number(process.env.REDIS_RETRY_DELAY || '100')
   },
-  
+
   discord: {
-    token: process.env.BOT_TOKEN,
-    guildId: process.env.DISCORD_GUILD_ID,
+    token: env.BOT_TOKEN,
+    guildId: env.DISCORD_GUILD_ID,
     roles: {
       citizen: process.env.ROLE_CITIZEN_ID,
       shrimp: process.env.ROLE_HODL_SHRIMP_ID,
@@ -72,7 +73,7 @@ export const config = configSchema.parse({
   },
   
   security: {
-    jwtSecret: process.env.ADMIN_JWT_SECRET,
+    jwtSecret: env.ADMIN_JWT_SECRET,
     adminIpAllowlist: (process.env.ADMIN_IP_ALLOWLIST || '').split(',').filter(Boolean),
     rateLimits: {
       public: {
@@ -100,10 +101,3 @@ export const config = configSchema.parse({
     }
   }
 });
-
-// Validate required environment variables
-const requiredEnvVars = ['MONGODB_URI', 'REDIS_URL', 'BOT_TOKEN', 'DISCORD_GUILD_ID', 'ADMIN_JWT_SECRET'];
-const missing = requiredEnvVars.filter(key => !process.env[key]);
-if (missing.length > 0) {
-  throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
-}

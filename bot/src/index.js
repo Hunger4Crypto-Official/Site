@@ -7,7 +7,7 @@ import { Client, GatewayIntentBits, Partials, Collection } from 'discord.js';
 
 // Import all advanced utilities and services
 import { logger } from './utils/logger.js';
-import { Env, assertRequiredEnv, assertStrongSecret, assertUrlNoV2 } from './utils/envGuard.js';
+import { assertRequiredEnv, assertStrongSecret, assertUrlNoV2 } from './utils/envGuard.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { metricsMiddleware, metricsHandler } from './middleware/metrics.js';
 import { tokenBucket, adminGuard } from './middleware/rateLimit.js';
@@ -19,7 +19,12 @@ import { AlgorandLeaderboardService } from './services/algorandLeaderboardServic
 import { User } from './database/models.js';
 
 // Import GM responses!
-import { gmResponses, randomFrom } from './utils/botResponses.js';
+import { gmResponses, randomFrom, cryptoJokes, techFacts } from './utils/botResponses.js';
+import { Settings } from './utils/settings.js';
+import { PersonalityService } from './services/personalityService.js';
+import { CommunityEngagementService } from './services/communityEngagementService.js';
+import { RandomChatterService } from './services/randomChatterService.js';
+import { CommandRegistry } from './services/commandRegistry.js';
 
 /* --------------------------- Enhanced Error Handling --------------------------- */
 process.on('uncaughtException', (error) => {
@@ -52,6 +57,28 @@ if (process.env.ALGORAND_NODE_URL) {
   assertUrlNoV2('ALGORAND_NODE_URL');
 }
 
+const GN_RESPONSES = [
+  'Power down, hero. Tomorrow needs your chaos. 🌙',
+  'Rest up—your GM streak needs fuel. 😴',
+  'Logging you out of reality for the night. 🔒',
+  'Sweet dreams, legend. May your bags moon while you nap. 💫',
+  'Night watch disengaged. Go recharge. 💤',
+  'Dream in memes and manifest in pumps. 🌌'
+];
+
+const OWNER_PATTERNS = [
+  /who\s*(?:is|'s)\s*(?:the\s*)?(?:owner|creator)\b.*\b(?:bot|you)/i,
+  /who\s*owns\s*(?:this|the\s*bot|you)/i,
+  /who\s*made\s*(?:you|this)/i,
+  /who\s*controls\s*(?:you|this\s*bot)/i
+];
+
+const NAME_PATTERNS = [
+  /what\s*(?:is|'s)\s*(?:ya|your)\s*(?:name|deal)/i,
+  /who\s*are\s*you\b/i,
+  /what\s*do\s*we\s*call\s*you/i
+];
+
 /* --------------------------- Discord Client Setup --------------------------- */
 const client = new Client({
   intents: [
@@ -69,6 +96,9 @@ const client = new Client({
 });
 
 client.slashCommands = new Collection();
+let commandRegistry;
+
+CommunityEngagementService.initialize(client);
 
 /* --------------------------- Express Server Setup --------------------------- */
 const app = express();
@@ -407,6 +437,7 @@ app.get('/api/stats', async (req, res) => {
           memory: memoryMatch ? memoryMatch[1] : 'unknown'
         };
       } catch (redisError) {
+        logger.warn({ error: String(redisError) }, 'Failed to fetch redis info');
         stats.redis = { status: redis.status, error: 'Could not fetch info' };
       }
     }
@@ -455,13 +486,15 @@ app.get('/api/leaderboard/:type', async (req, res) => {
 /* --------------------------- Discord Event Handlers --------------------------- */
 
 client.once('ready', async () => {
-  logger.info({ 
-    user: client.user.tag, 
+  logger.info({
+    user: client.user.tag,
     guilds: client.guilds.cache.size,
     users: client.users.cache.size,
     ping: client.ws.ping
   }, 'Discord bot ready 🚀');
-  
+
+  commandRegistry = new CommandRegistry(client);
+
   // Load slash commands
   try {
     await loadSlashCommands(client);
@@ -487,7 +520,7 @@ client.once('ready', async () => {
       logger.error(error, 'Failed to initialize role management');
     }
   }
-  
+
   // Initialize leaderboard service
   if (AlgorandLeaderboardService) {
     try {
@@ -497,6 +530,8 @@ client.once('ready', async () => {
       logger.error(error, 'Failed to initialize leaderboard service');
     }
   }
+
+  RandomChatterService.initialize(client);
 });
 
 client.on('error', (error) => {
@@ -513,7 +548,26 @@ client.on('debug', (info) => {
   }
 });
 
-// ----------- GM auto-reply handler -----------
+client.on('guildMemberAdd', async (member) => {
+  try {
+    await CommunityEngagementService.ensureUser(member.user);
+  } catch (error) {
+    logger.warn({ error: String(error), memberId: member.id }, 'Failed to ensure user on join');
+  }
+
+  const channelId = Settings.welcomeChannelId || member.guild.systemChannelId;
+  if (!channelId) return;
+
+  try {
+    const channel = await CommunityEngagementService.resolveChannel(channelId);
+    if (!channel) return;
+    await channel.send(PersonalityService.welcomeMessage(member));
+  } catch (error) {
+    logger.error({ error: String(error), channelId }, 'Failed to send welcome message');
+  }
+});
+
+// ----------- Core community + personality handler -----------
 client.on('messageCreate', async (message) => {
   if (
     message.author.bot ||
@@ -521,9 +575,115 @@ client.on('messageCreate', async (message) => {
     message.channel.type !== 0 // Only reply in text channels
   ) return;
 
-  if (/^gm\b/i.test(message.content.trim())) {
-    // Reply with a random GM response
-    await message.reply(randomFrom(gmResponses));
+  const content = message.content?.trim();
+  if (!content) return;
+
+  const lowerContent = content.toLowerCase();
+  const addressedToBot = client.user ? message.mentions.users.has(client.user.id) : false;
+
+  let userDoc;
+  try {
+    userDoc = await CommunityEngagementService.recordMessage(message);
+  } catch (error) {
+    logger.error({ error: String(error), messageId: message.id }, 'Failed to record community activity');
+  }
+
+  if (commandRegistry) {
+    try {
+      const handled = await commandRegistry.handle(message, userDoc);
+      if (handled) return;
+    } catch (error) {
+      logger.error({ error: String(error), messageId: message.id }, 'Command registry execution failed');
+    }
+  }
+
+  const gmMatch = /^gm\b/i.test(content);
+  if (gmMatch) {
+    const result = await CommunityEngagementService.handleGreeting(message, 'gm', userDoc);
+    if (result?.reason === 'cooldown') {
+      let cooldownLine = 'Nice hustle, but that GM is already logged.';
+      if (result?.nextAvailableAt instanceof Date) {
+        const ts = Math.floor(result.nextAvailableAt.getTime() / 1000);
+        cooldownLine += ` Try again <t:${ts}:R>.`;
+      }
+      await message.reply(PersonalityService.wrap(cooldownLine, { user: message.author, noSuffix: true }));
+      return;
+    }
+
+    let reply = randomFrom(gmResponses) || 'gm';
+    const highlights = [];
+    if (result?.streak) {
+      highlights.push(`streak: ${result.streak}`);
+    }
+    if (result?.count) {
+      highlights.push(`total logged: ${result.count}`);
+    }
+    if (result?.achievements?.length) {
+      highlights.push(`unlocked ${result.achievements.map(a => `**${a.label}**`).join(', ')}`);
+    }
+    if (highlights.length) {
+      reply += `\n${highlights.join(' • ')}`;
+    }
+
+    await message.reply(PersonalityService.wrap(reply, { user: message.author }));
+    return;
+  }
+
+  const gnMatch = /^gn\b/i.test(content);
+  if (gnMatch) {
+    const result = await CommunityEngagementService.handleGreeting(message, 'gn', userDoc);
+    if (result?.reason === 'cooldown') {
+      let cooldownLine = 'Logged a GN already. Power down properly before trying again.';
+      if (result?.nextAvailableAt instanceof Date) {
+        const ts = Math.floor(result.nextAvailableAt.getTime() / 1000);
+        cooldownLine += ` Fresh attempt <t:${ts}:R>.`;
+      }
+      await message.reply(PersonalityService.wrap(cooldownLine, { user: message.author, noSuffix: true }));
+      return;
+    }
+
+    let reply = randomFrom(GN_RESPONSES) || 'gn';
+    const highlights = [];
+    if (result?.streak) {
+      highlights.push(`night streak: ${result.streak}`);
+    }
+    if (result?.count) {
+      highlights.push(`total clock-outs: ${result.count}`);
+    }
+    if (result?.achievements?.length) {
+      highlights.push(`unlocked ${result.achievements.map(a => `**${a.label}**`).join(', ')}`);
+    }
+    if (highlights.length) {
+      reply += `\n${highlights.join(' • ')}`;
+    }
+
+    await message.reply(PersonalityService.wrap(reply, { user: message.author }));
+    return;
+  }
+
+  const ownerPattern = OWNER_PATTERNS.find(pattern => pattern.test(lowerContent));
+  if (ownerPattern && (addressedToBot || lowerContent.includes('bot') || lowerContent.includes('you'))) {
+    const match = lowerContent.match(ownerPattern);
+    const trigger = match?.[0]?.trim() || ownerPattern.source;
+    await message.reply(PersonalityService.ownerInfoReply(trigger));
+    return;
+  }
+
+  const namePattern = NAME_PATTERNS.find(pattern => pattern.test(lowerContent));
+  if (namePattern && (addressedToBot || lowerContent.includes('bot') || lowerContent.includes('you'))) {
+    const match = lowerContent.match(namePattern);
+    const trigger = match?.[0]?.trim() || namePattern.source;
+    await message.reply(PersonalityService.nameReply(trigger));
+    return;
+  }
+
+  if (
+    (addressedToBot || lowerContent.includes('bot') || lowerContent.includes('hunger') || lowerContent.includes('h4c')) &&
+    /(tell|drop|give|share).*(joke|fact)/i.test(lowerContent)
+  ) {
+    const pool = [...cryptoJokes, ...techFacts];
+    const response = randomFrom(pool) || 'Fine. Insert wry crypto wisdom here.';
+    await message.reply(PersonalityService.wrap(response, { user: message.author }));
   }
 });
 

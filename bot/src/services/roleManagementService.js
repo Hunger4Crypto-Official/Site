@@ -1,4 +1,3 @@
-import { GuildMember } from 'discord.js';
 import { metrics } from '../middleware/metrics.js';
 
 const roleMap = [
@@ -48,7 +47,7 @@ export class RoleManagementService {
   static async batchSyncHodlRoles(guild) {
     const members = await guild.members.fetch();
     let changed = 0;
-    for (const [id, _m] of members) {
+    for (const [id] of members) {
       const res = await this.syncHodlRoles(guild, id);
       if (res.changed) changed++;
       await new Promise(r => setTimeout(r, 100));

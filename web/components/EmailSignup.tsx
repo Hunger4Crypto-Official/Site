@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type EmailSignupProps = {
   className?: string;
@@ -9,10 +9,16 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (resetTimer.current) {
+      clearTimeout(resetTimer.current);
+      resetTimer.current = null;
+    }
+
     if (!email.trim()) {
       setStatus("error");
       setMessage("Please enter your email address");
@@ -52,13 +58,31 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
       setStatus("error");
       setMessage("Network error. Please try again.");
     }
-
-    // Clear status after 5 seconds
-    setTimeout(() => {
-      setStatus("idle");
-      setMessage("");
-    }, 5000);
   };
+
+  useEffect(() => {
+    if (status === "success" || status === "error") {
+      if (resetTimer.current) {
+        clearTimeout(resetTimer.current);
+      }
+
+      resetTimer.current = setTimeout(() => {
+        setStatus("idle");
+        setMessage("");
+        resetTimer.current = null;
+      }, 5000);
+    } else if (resetTimer.current) {
+      clearTimeout(resetTimer.current);
+      resetTimer.current = null;
+    }
+
+    return () => {
+      if (resetTimer.current) {
+        clearTimeout(resetTimer.current);
+        resetTimer.current = null;
+      }
+    };
+  }, [status]);
 
   return (
     <div className={`bg-slate-800/50 border border-slate-700 rounded-lg p-6 ${className}`}>
@@ -69,7 +93,13 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        action="/api/email/subscribe"
+        method="post"
+        noValidate
+      >
         <div>
           <input
             type="email"
@@ -77,6 +107,9 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
             disabled={status === "loading"}
+            required
+            inputMode="email"
+            pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
             className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
           />
         </div>
@@ -89,15 +122,24 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
           {status === "loading" ? "Subscribing..." : "Subscribe for Updates"}
         </button>
 
-        {message && (
-          <div className={`text-sm text-center ${
-            status === "success" ? "text-green-400" : 
-            status === "error" ? "text-red-400" : 
-            "text-slate-400"
-          }`}>
-            {message}
-          </div>
-        )}
+        <div
+          className={`text-sm text-center ${
+            status === "success"
+              ? "text-green-400"
+              : status === "error"
+              ? "text-red-400"
+              : "text-slate-400"
+          }`}
+          aria-live="polite"
+        >
+          {message}
+        </div>
+
+        <noscript>
+          <p className="text-xs text-slate-400 text-center">
+            JavaScript is disabled, but the form will still submit using your browser settings.
+          </p>
+        </noscript>
       </form>
 
       <div className="mt-4 text-xs text-slate-500 text-center">

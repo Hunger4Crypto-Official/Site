@@ -13,53 +13,51 @@
     "web"
   ],
   "scripts": {
-    "install:all": "npm ci && npm --prefix web ci && npm --prefix bot ci && npm --prefix shared ci",
-    "dev": "concurrently \"npm --prefix web run dev\" \"npm --prefix bot run dev\"",
-    
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:bot\"",
+    "dev:web": "npm --prefix web run dev",
+    "dev:bot": "npm --prefix bot run dev",
+
     "build": "npm run build:shared && npm run build:web && npm run build:bot",
-    "build:shared": "cd shared && npm run build",
-    "build:web": "cd web && npm run build",
-    "build:bot": "cd bot && npm run build",
-    
-    "start": "concurrently \"npm --prefix web run start\" \"npm --prefix bot run start\"",
-    "start:web": "cd web && npm run start",
-    "start:bot": "cd bot && npm run start",
-    
-    "test": "npm run test:shared && npm run test:bot && npm run test:web",
-    "test:shared": "cd shared && npm test",
-    "test:bot": "cd bot && npm test",
-    "test:web": "cd web && npm test",
-    "test:integration": "node tests/smoke.js && node tests/integration-award.js",
-    
-    "lint": "npm run lint:shared && npm run lint:bot && npm run lint:web",
-    "lint:shared": "cd shared && npm run lint",
-    "lint:bot": "cd bot && npm run lint",
-    "lint:web": "cd web && npm run lint",
-    "lint:fix": "npm run lint:shared -- --fix && npm run lint:bot -- --fix && npm run lint:web -- --fix",
-    
+    "build:shared": "npm --prefix shared run build",
+    "build:web": "npm --prefix web run build",
+    "build:bot": "npm --prefix bot run build",
+
+    "start": "concurrently \"npm run start:web\" \"npm run start:bot\"",
+    "start:web": "npm --prefix web run start",
+    "start:bot": "npm --prefix bot run start",
+
+    "test": "npm run test:shared && npm run test:web && npm run test:bot",
+    "test:shared": "npm --prefix shared test",
+    "test:web": "npm --prefix web test",
+    "test:bot": "npm --prefix bot test",
+    "test:unit": "npm run test",
+    "test:integration": "node tests/smoke.js",
+
+    "lint": "npm run lint:shared && npm run lint:web && npm run lint:bot",
+    "lint:shared": "npm --prefix shared run lint",
+    "lint:web": "npm --prefix web run lint",
+    "lint:bot": "npm --prefix bot run lint",
+    "lint:fix": "npm run lint:shared -- --fix && npm run lint:web -- --fix && npm run lint:bot -- --fix",
+
     "type-check": "npm run type-check:web && npm run type-check:bot",
-    "type-check:web": "cd web && npm run type-check",
+    "type-check:web": "npm --prefix web run type-check",
     "type-check:bot": "echo \"Bot is JavaScript - no type checking needed\"",
-    
-    "clean": "rm -rf */node_modules */.next */dist node_modules",
-    "clean:cache": "rm -rf */.next/cache */node_modules/.cache",
-    
-    "seed:badges": "cd bot && node ../scripts/seed_badges.js",
-    
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up -d",
+
+    "clean": "npm run clean:deps && npm run clean:builds",
+    "clean:deps": "rm -rf node_modules */node_modules",
+    "clean:builds": "rm -rf */dist */.next */build",
+
+    "seed:badges": "node scripts/seed_badges.js",
+
+    "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
+    "docker:prod": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "docker:restart": "npm run docker:down && npm run docker:up",
-    
-    "deploy:staging": "npm run build && npm run test && docker-compose -f docker-compose.staging.yml up -d",
-    "deploy:prod": "npm run build && npm run test && docker-compose -f docker-compose.prod.yml up -d",
-    
-    "health": "curl -f http://localhost:3000/health && curl -f http://localhost:3001/api/health",
-    
+
+    "setup": "npm run install:all && npm run build:shared",
+    "install:all": "npm ci && npm --prefix shared ci && npm --prefix web ci && npm --prefix bot ci",
+
     "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,ts,tsx,json,md}\"",
-    
     "security:audit": "npm audit --audit-level=moderate",
     "security:fix": "npm audit fix"
   },
