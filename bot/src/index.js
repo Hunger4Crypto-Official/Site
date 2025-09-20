@@ -615,43 +615,43 @@ client.on('messageCreate', async (message) => {
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-  
+
   const command = client.slashCommands.get(interaction.commandName);
   if (!command) {
-    logger.warn({ 
-      command: interaction.commandName, 
-      user: interaction.user.tag 
+    logger.warn({
+      command: interaction.commandName,
+      user: interaction.user.tag
     }, 'Unknown command attempted');
     return;
   }
-  
+
   const startTime = Date.now();
-  
+
   try {
     await command.execute(interaction);
     const duration = Date.now() - startTime;
-    
-    logger.info({ 
-      command: interaction.commandName, 
+
+    logger.info({
+      command: interaction.commandName,
       user: interaction.user.tag,
       guild: interaction.guild?.name,
       duration
     }, 'Command executed successfully');
   } catch (error) {
     const duration = Date.now() - startTime;
-    
-    logger.error({ 
-      error, 
-      command: interaction.commandName, 
+
+    logger.error({
+      error,
+      command: interaction.commandName,
       user: interaction.user.tag,
       duration
     }, 'Command execution failed');
-    
+
     const reply = {
       content: 'There was an error executing this command. Please try again later.',
       ephemeral: true
     };
-    
+
     try {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(reply);
@@ -663,6 +663,8 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 });
+
+client.__h4cSlashHandlerBound = true;
 
 /* --------------------------- Database Connection --------------------------- */
 const connectDatabase = async () => {

@@ -184,9 +184,69 @@ export async function loadSlashCommands(client) {
     { body: definitions.map(def => def.builder.toJSON()) }
   );
 
-  client.slashCommands.clear();
+  if (!client.slashCommands || typeof client.slashCommands.set !== 'function') {
+    client.slashCommands = new Map();
+  } else if (typeof client.slashCommands.clear === 'function') {
+    client.slashCommands.clear();
+  }
+
   for (const def of definitions) {
     client.slashCommands.set(def.name, def);
+  }
+
+  if (!client.__h4cSlashHandlerBound) {
+    client.on('interactionCreate', async (interaction) => {
+      if (!interaction.isChatInputCommand()) return;
+
+      const command = client.slashCommands.get(interaction.commandName);
+      if (!command) {
+        logger.warn({
+          command: interaction.commandName,
+          user: interaction.user.tag
+        }, 'Unknown slash command attempted (fallback handler)');
+        return;
+      }
+
+      const startTime = Date.now();
+
+      try {
+        await command.execute(interaction);
+        const duration = Date.now() - startTime;
+
+        logger.info({
+          command: interaction.commandName,
+          user: interaction.user.tag,
+          guild: interaction.guild?.name,
+          duration
+        }, 'Slash command executed successfully (fallback handler)');
+      } catch (error) {
+        const duration = Date.now() - startTime;
+
+        logger.error({
+          error,
+          command: interaction.commandName,
+          user: interaction.user.tag,
+          duration
+        }, 'Slash command execution failed (fallback handler)');
+
+        const reply = {
+          content: 'There was an error executing this command. Please try again later.',
+          ephemeral: true
+        };
+
+        try {
+          if (interaction.replied || interaction.deferred) {
+            await interaction.followUp(reply);
+          } else {
+            await interaction.reply(reply);
+          }
+        } catch (replyError) {
+          logger.error(replyError, 'Failed to send slash command error response (fallback handler)');
+        }
+      }
+    });
+
+    client.__h4cSlashHandlerBound = true;
   }
 
   logger.info({ count: definitions.length }, 'Slash commands registered');
