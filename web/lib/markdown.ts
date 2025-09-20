@@ -1,3 +1,4 @@
+import DOMPurify from "isomorphic-dompurify";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
@@ -9,5 +10,6 @@ export async function mdToHtml(md: string): Promise<string> {
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeStringify, { allowDangerousHtml: true })
     .process(md);
-  return String(file);
+  const rendered = String(file);
+  return DOMPurify.sanitize(rendered);
 }
