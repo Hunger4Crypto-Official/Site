@@ -3,230 +3,175 @@ import path from "path";
 import type { Article, Section } from "./types";
 import { mdToHtml } from "./markdown";
 
-// FIXED: Support multiple possible content locations for different build environments
-function findContentDirectory(): string {
-  const possiblePaths = [
-    // Build time paths (Render, Vercel, etc)
-    path.join(process.cwd(), "web", "content", "mega_article"),
-    path.join(process.cwd(), "content", "mega_article"),
-    
-    // Local development paths
-    path.join(process.cwd(), "..", "content", "mega_article"),
-    
-    // Fallback for Next.js standalone builds
-    path.join(process.cwd(), "..", "..", "content", "mega_article"),
-  ];
-
-  for (const testPath of possiblePaths) {
-    console.log(`Checking content path: ${testPath}`);
-    if (fs.existsSync(testPath)) {
-      console.log(`✓ Found content directory at: ${testPath}`);
-      return testPath;
-    }
-  }
-
-  // If no content directory exists, create one with sample content
-  const fallbackDir = path.join(process.cwd(), "web", "content", "mega_article");
-  console.warn(`⚠️ No content directory found. Creating fallback at: ${fallbackDir}`);
+// FIXED: Content directory resolution for Render deployment
+const CONTENT_DIR = (() => {
+  // In production/build, content is at web/content/mega_article
+  const primaryPath = path.join(process.cwd(), "content", "mega_article");
+  const webPath = path.join(process.cwd(), "web", "content", "mega_article");
   
-  try {
-    fs.mkdirSync(fallbackDir, { recursive: true });
-    // Create a minimal sample article
-    const sampleArticle = {
-      slug: "welcome",
-      title: "Welcome to H4C",
-      description: "Getting started with the H4C platform",
-      sections: [{
-        heading: "Introduction",
-        body: "Welcome to the H4C educational platform. Content is being prepared."
-      }]
-    };
-    fs.writeFileSync(
-      path.join(fallbackDir, "welcome.json"),
-      JSON.stringify(sampleArticle, null, 2)
-    );
-    return fallbackDir;
-  } catch (err) {
-    console.error("Failed to create fallback content directory:", err);
-    return fallbackDir; // Return anyway for consistent behavior
+  // Check both possible locations
+  if (fs.existsSync(primaryPath)) {
+    console.log(`✓ Content found at: ${primaryPath}`);
+    return primaryPath;
   }
-}
-
-const CONTENT_DIR = findContentDirectory();
-
-// FIXED: Embedded fallback content for critical articles
-const FALLBACK_ARTICLES: Record<string, Article> = {
-  foreword: {
-    slug: "foreword",
-    title: "Foreword: Why Crypto, Why Now",
-    description: "Introduction to the world of cryptocurrency and blockchain",
-    sections: [
-      {
-        heading: "Welcome to Hunger4Crypto",
-        body: "The story of cryptocurrency is the story of money itself: a tale of trust, belief, rebellion, and reinvention."
-      },
-      {
-        heading: "Why This Guide Exists",
-        body: "When Bitcoin appeared in 2009, the world laughed. Fast forward and governments, banks, and billion dollar funds are now deep in the same game."
-      }
-    ]
-  },
-  bitcoin: {
-    slug: "bitcoin",
-    title: "Bitcoin: The Genesis and Relentless Rise",
-    description: "Understanding Bitcoin, the first cryptocurrency",
-    sections: [
-      {
-        heading: "The Spark That Ignited a Revolution",
-        body: "Picture the world in 2008. The financial system was on fire. Out of that chaos, Satoshi Nakamoto dropped a nine page PDF that would change everything."
-      }
-    ]
-  },
-  ethereum: {
-    slug: "ethereum",
-    title: "Ethereum: The World Computer",
-    description: "Smart contracts and the programmable blockchain",
-    sections: [
-      {
-        heading: "From Bitcoin's Shadow to a New Vision",
-        body: "After Bitcoin proved digital scarcity could exist, Vitalik Buterin imagined something bigger: a blockchain that acted like a world computer."
-      }
-    ]
-  },
-  algorand: {
-    slug: "algorand",
-    title: "Algorand: The Green Speed Demon",
-    description: "Fast, eco-friendly blockchain technology",
-    sections: [
-      {
-        heading: "The Elevator Pitch",
-        body: "Algorand is the blockchain you bring up when someone says crypto is slow and wasteful. It's fast, eco-friendly, and designed by MIT professor Silvio Micali."
-      }
-    ]
+  
+  if (fs.existsSync(webPath)) {
+    console.log(`✓ Content found at: ${webPath}`);
+    return webPath;
   }
-};
+  
+  // For Render, during build the structure might be different
+  // Try relative to where Next.js runs from
+  const buildPath = path.resolve("content", "mega_article");
+  if (fs.existsSync(buildPath)) {
+    console.log(`✓ Content found at: ${buildPath}`);
+    return buildPath;
+  }
+  
+  console.warn(`⚠️ Content directory not found, using: ${primaryPath}`);
+  return primaryPath;
+})();
 
-// Safe file operations with fallbacks
-function safeReadDir(dir: string): string[] {
+// Log what files we can see (helpful for debugging)
+console.log("Content directory status:", {
+  exists: fs.existsSync(CONTENT_DIR),
+  path: CONTENT_DIR,
+  files: fs.existsSync(CONTENT_DIR) ? fs.readdirSync(CONTENT_DIR).filter(f => f.endsWith('.json')) : []
+});
+
+// FIXED: Build-safe directory listing
+function safeList(dir: string): string[] {
   try {
     if (!fs.existsSync(dir)) {
-      console.warn(`Directory does not exist: ${dir}`);
+      console.warn(`Content directory does not exist: ${dir}`);
       return [];
     }
     return fs.readdirSync(dir);
   } catch (error) {
-    console.error(`Failed to read directory ${dir}:`, error);
+    console.error(`Failed to list directory ${dir}:`, error);
     return [];
   }
 }
 
-function safeReadJson(filePath: string): any | null {
-  try {
-    if (!fs.existsSync(filePath)) {
-      return null;
-    }
-    const content = fs.readFileSync(filePath, "utf8");
-    return JSON.parse(content);
-  } catch (error) {
-    console.error(`Failed to read JSON ${filePath}:`, error);
-    return null;
-  }
-}
-
 export function listArticleFiles(): string[] {
-  const files = safeReadDir(CONTENT_DIR).filter(f => f.endsWith(".json"));
-  
-  // If no files found, return fallback article names
-  if (files.length === 0) {
-    console.warn("No article files found, using fallback article list");
-    return Object.keys(FALLBACK_ARTICLES).map(slug => `${slug}.json`);
-  }
-  
-  return files;
+  return safeList(CONTENT_DIR).filter((f) => f.endsWith(".json"));
 }
 
-export function getAllArticleSlugs(): string[] {
-  const files = listArticleFiles();
-  const slugs = files.map(f => f.replace(/\.json$/, ""));
-  
-  // Ensure critical articles are always included
-  const criticalSlugs = ["foreword", "bitcoin", "ethereum", "algorand"];
-  const allSlugs = new Set([...slugs, ...criticalSlugs]);
-  
-  return Array.from(allSlugs);
+function stripJsonExtension(fileName: string): string {
+  return fileName.replace(/\.json$/i, "");
+}
+
+function normalizeSlugInput(slug: string): string {
+  return slug.trim().replace(/^\//, "").replace(/\.json$/i, "");
 }
 
 export function resolveArticleSlug(slug: string): string | null {
-  const normalized = slug.trim().toLowerCase().replace(/^\//, "").replace(/\.json$/i, "");
-  
-  // Check if it's a fallback article
-  if (FALLBACK_ARTICLES[normalized]) {
-    return normalized;
+  const normalized = normalizeSlugInput(slug);
+  if (!normalized) {
+    return null;
   }
-  
-  // Try to find in filesystem
+
   const directPath = path.join(CONTENT_DIR, `${normalized}.json`);
   if (fs.existsSync(directPath)) {
     return normalized;
   }
-  
-  // Try with number prefix (e.g., "01-foreword.json")
-  const files = safeReadDir(CONTENT_DIR);
-  const match = files.find(f => {
-    const base = f.replace(/\.json$/i, "").toLowerCase();
-    return base === normalized || base.endsWith(`-${normalized}`);
-  });
-  
-  if (match) {
-    return match.replace(/\.json$/i, "");
+
+  const files = listArticleFiles();
+  const lower = normalized.toLowerCase();
+
+  const exactMatch = files.find((file) => stripJsonExtension(file).toLowerCase() === lower);
+  if (exactMatch) {
+    return stripJsonExtension(exactMatch);
   }
-  
+
+  const suffixMatch = files.find((file) => {
+    const base = stripJsonExtension(file);
+    const withoutPrefix = base.replace(/^\d+-/, "");
+    return withoutPrefix.toLowerCase() === lower;
+  });
+
+  if (suffixMatch) {
+    return stripJsonExtension(suffixMatch);
+  }
+
   return null;
 }
 
-export function readArticleJson(slug: string): Article | null {
-  const resolvedSlug = resolveArticleSlug(slug);
-  
-  // Try fallback first for critical articles
-  if (FALLBACK_ARTICLES[slug]) {
-    console.log(`Using fallback content for: ${slug}`);
-    return FALLBACK_ARTICLES[slug];
+export function getAllArticleSlugs(): string[] {
+  const files = listArticleFiles();
+  if (files.length === 0) {
+    console.warn('No article files found, returning fallback slugs');
+    // Return some fallback slugs to prevent build failure
+    return ['foreword', 'bitcoin', 'ethereum', 'algorand'];
   }
-  
-  if (!resolvedSlug) {
-    console.warn(`Could not resolve slug: ${slug}`);
-    return createFallbackArticle(slug);
-  }
-  
-  const filePath = path.join(CONTENT_DIR, `${resolvedSlug}.json`);
-  const raw = safeReadJson(filePath);
-  
-  if (!raw) {
-    console.warn(`No content found for ${slug}, using fallback`);
-    return createFallbackArticle(slug);
-  }
-  
-  // Ensure required fields
-  raw.slug = raw.slug ?? resolvedSlug;
-  raw.title = raw.title ?? `Article: ${slug}`;
-  
-  return raw as Article;
+  return files.map((f) => f.replace(/\.json$/, ""));
 }
 
-function createFallbackArticle(slug: string): Article {
-  // Check if we have embedded fallback
-  if (FALLBACK_ARTICLES[slug]) {
-    return FALLBACK_ARTICLES[slug];
+// FIXED: Robust JSON reading with fallbacks
+function readJson(filePath: string): any | null {
+  try {
+    console.log(`Reading JSON file: ${filePath}`);
+    
+    if (!fs.existsSync(filePath)) {
+      console.warn(`File does not exist: ${filePath}`);
+      return null;
+    }
+    
+    const content = fs.readFileSync(filePath, "utf8");
+    console.log(`File size: ${content.length} characters`);
+    
+    if (!content.trim()) {
+      console.warn(`File is empty: ${filePath}`);
+      return null;
+    }
+    
+    return JSON.parse(content);
+  } catch (error) {
+    console.error(`Failed to read JSON file ${filePath}:`, error);
+    return null;
   }
-  
-  // Generate generic fallback
+}
+
+export function readArticleJson(slug: string): Article | null {
+  const resolvedSlug = resolveArticleSlug(slug) ?? slug;
+  if (resolvedSlug !== slug) {
+    console.log(`Resolved article slug '${slug}' to '${resolvedSlug}'`);
+  }
+  const p = path.join(CONTENT_DIR, `${resolvedSlug}.json`);
+
+  try {
+    const raw = readJson(p);
+    if (!raw) {
+      // Return fallback article to prevent build failure
+      console.warn(`Creating fallback article for: ${slug}`);
+      return createFallbackArticle(slug);
+    }
+
+    // Ensure slug is set
+    raw.slug = raw.slug ?? resolvedSlug;
+
+    // Validate required fields
+    if (!raw.title) {
+      console.warn(`Article ${slug} missing title`);
+      raw.title = `Article: ${slug}`;
+    }
+    
+    return raw as Article;
+  } catch (error) {
+    console.error(`Error reading article ${slug}:`, error);
+    return createFallbackArticle(slug);
+  }
+}
+
+// FIXED: Fallback article creation for build safety
+function createFallbackArticle(slug: string): Article {
   return {
     slug,
-    title: `${slug.charAt(0).toUpperCase() + slug.slice(1)}`,
+    title: `${slug.charAt(0).toUpperCase() + slug.slice(1)}: Coming Soon`,
     description: `Learn about ${slug} in our comprehensive guide.`,
     sections: [
       {
-        heading: "Content Coming Soon",
+        heading: "Content Loading",
         body: `This article about ${slug} is being prepared. Check back soon for comprehensive coverage.`
       }
     ]
@@ -234,50 +179,65 @@ function createFallbackArticle(slug: string): Article {
 }
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
+  console.log(`Processing article: ${slug}`);
+
   try {
     const raw = readArticleJson(slug);
     if (!raw) {
+      console.log(`Failed to read raw article: ${slug}`);
       return createFallbackArticle(slug);
     }
 
     const sections: Section[] = [];
     const rawSections = Array.isArray(raw.sections) ? raw.sections : [];
+    console.log(`Processing ${rawSections.length} sections for ${slug}`);
     
+    // FIXED: Handle empty sections gracefully
     if (rawSections.length === 0) {
+      console.warn(`No sections found for ${slug}, creating default`);
       sections.push({
         heading: "Introduction",
-        body: `Welcome to our guide on ${raw.title}.`
+        body: `Welcome to our guide on ${slug}.`
       });
     } else {
-      for (const sec of rawSections) {
+      for (let i = 0; i < rawSections.length; i++) {
+        const sec = rawSections[i];
+        console.log(`Processing section ${i + 1}/${rawSections.length} for ${slug}`);
+        
         try {
-          let body = sec.body ?? (sec as any).content;
+          // Accept body, content, or markdown
+          let body: string | undefined = sec.body ?? (sec as any).content;
           
           if (!body && (sec as any).bodyMarkdown) {
+            console.log(`Converting markdown for section ${i + 1} in ${slug}`);
             try {
               body = await mdToHtml((sec as any).bodyMarkdown);
-            } catch {
-              body = (sec as any).bodyMarkdown;
+            } catch (mdError) {
+              console.error(`Markdown conversion failed for ${slug} section ${i + 1}:`, mdError);
+              body = (sec as any).bodyMarkdown; // Fallback to raw markdown
             }
           }
           
           sections.push({
-            heading: sec.heading?.trim() || "Section",
+            heading: sec.heading?.trim() || `Section ${i + 1}`,
             body: body || "Content temporarily unavailable."
           });
         } catch (error) {
-          console.error(`Error processing section:`, error);
+          console.error(`Error processing section ${i + 1} in ${slug}:`, error);
+          // Continue with fallback section rather than failing completely
           sections.push({
-            heading: sec.heading?.trim() || "Section",
+            heading: sec.heading?.trim() || `Section ${i + 1}`,
             body: "Content temporarily unavailable."
           });
         }
       }
     }
 
+    console.log(`Successfully processed ${sections.length} sections for ${slug}`);
+
     return {
       slug: raw.slug ?? slug,
-      title: raw.title,
+      title: raw.title || `Article: ${slug}`,
       description: raw.description || "",
       coverImage: raw.coverImage ?? null,
       updatedAt: raw.updatedAt ?? null,
@@ -292,50 +252,88 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
 
 export async function getAllArticles(): Promise<Article[]> {
   const slugs = getAllArticleSlugs();
-  console.log(`Processing ${slugs.length} articles...`);
+  console.log(`Starting to process ${slugs.length} articles...`);
   
-  const articles: Article[] = [];
+  if (slugs.length === 0) {
+    console.warn('No article files found, creating fallback articles');
+    const fallbackSlugs = ['foreword', 'bitcoin', 'ethereum', 'algorand'];
+    return fallbackSlugs.map(slug => createFallbackArticle(slug));
+  }
+  
+  const out: Article[] = [];
+  const errors: string[] = [];
+  
+  for (let i = 0; i < slugs.length; i++) {
+    const slug = slugs[i];
+    console.log(`Processing article ${i + 1}/${slugs.length}: ${slug}`);
+    
+    try {
+      const a = await getArticleBySlug(slug);
+      if (a) {
+        out.push(a);
+        console.log(`Successfully added article: ${slug}`);
+      } else {
+        console.warn(`Failed to process article: ${slug}`);
+        errors.push(slug);
+        // Add fallback to prevent empty results
+        out.push(createFallbackArticle(slug));
+      }
+    } catch (error) {
+      console.error(`Error processing article ${slug}:`, error);
+      errors.push(slug);
+      // Add fallback article to maintain site structure
+      out.push(createFallbackArticle(slug));
+      continue;
+    }
+  }
+  
+  if (errors.length > 0) {
+    console.warn(`Failed to process ${errors.length} articles: ${errors.join(', ')}`);
+  }
+  
+  console.log(`Successfully processed ${out.length}/${slugs.length} articles`);
+  
+  // Ensure we always return something, even if everything failed
+  if (out.length === 0) {
+    console.warn('No articles could be processed, returning minimal fallback');
+    return [createFallbackArticle('welcome')];
+  }
+  
+  return out;
+}
+
+// Helper function to get article metadata without full processing (useful for listings)
+export function getAllArticleMetadata(): Array<Pick<Article, "slug" | "title" | "description">> {
+  const slugs = getAllArticleSlugs();
+  const metadata: Array<Pick<Article, "slug" | "title" | "description">> = [];
   
   for (const slug of slugs) {
     try {
-      const article = await getArticleBySlug(slug);
-      if (article) {
-        articles.push(article);
+      const raw = readArticleJson(slug);
+      if (raw) {
+        metadata.push({
+          slug: raw.slug ?? slug,
+          title: raw.title ?? `Article: ${slug}`,
+          description: raw.description ?? ""
+        });
+      } else {
+        // Add fallback metadata
+        metadata.push({
+          slug,
+          title: `${slug.charAt(0).toUpperCase() + slug.slice(1)}`,
+          description: `Learn about ${slug}`
+        });
       }
     } catch (error) {
-      console.error(`Error processing ${slug}:`, error);
-      // Add fallback to maintain site structure
-      articles.push(createFallbackArticle(slug));
+      console.error(`Error reading metadata for ${slug}:`, error);
+      // Add fallback metadata
+      metadata.push({
+        slug,
+        title: `${slug.charAt(0).toUpperCase() + slug.slice(1)}`,
+        description: "Loading..."
+      });
     }
   }
   
-  // Ensure we always have some content
-  if (articles.length === 0) {
-    console.warn("No articles processed, adding fallback articles");
-    return Object.values(FALLBACK_ARTICLES);
-  }
-  
-  return articles;
-}
-
-export function getAllArticleMetadata(): Array<Pick<Article, "slug" | "title" | "description">> {
-  const slugs = getAllArticleSlugs();
-  
-  return slugs.map(slug => {
-    const article = readArticleJson(slug);
-    if (article) {
-      return {
-        slug: article.slug,
-        title: article.title,
-        description: article.description ?? ""
-      };
-    }
-    
-    // Return fallback metadata
-    return {
-      slug,
-      title: slug.charAt(0).toUpperCase() + slug.slice(1),
-      description: ""
-    };
-  });
+  return metadata;
 }
