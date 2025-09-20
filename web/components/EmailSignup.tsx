@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type EmailSignupProps = {
   className?: string;
@@ -9,10 +9,34 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearResetTimer = () => {
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
+  };
+
+  const scheduleReset = () => {
+    clearResetTimer();
+    resetTimerRef.current = setTimeout(() => {
+      setStatus("idle");
+      setMessage("");
+      resetTimerRef.current = null;
+    }, 5000);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearResetTimer();
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    clearResetTimer();
+
     if (!email.trim()) {
       setStatus("error");
       setMessage("Please enter your email address");
@@ -53,11 +77,7 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
       setMessage("Network error. Please try again.");
     }
 
-    // Clear status after 5 seconds
-    setTimeout(() => {
-      setStatus("idle");
-      setMessage("");
-    }, 5000);
+    scheduleReset();
   };
 
   return (
