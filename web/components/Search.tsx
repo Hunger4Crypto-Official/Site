@@ -38,7 +38,7 @@ export default function Search({ articles }: SearchProps) {
       {query && (
         <div className="mt-4">
           <p className="text-sm text-slate-400 mb-3">
-            {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "{query}"
+            {filtered.length} result{filtered.length !== 1 ? "s" : ""} for “{query}”
           </p>
           <div className="space-y-3">
             {filtered.map(a => (

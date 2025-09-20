@@ -24,6 +24,46 @@ export function listArticleFiles(): string[] {
   return safeList(CONTENT_DIR).filter((f) => f.endsWith(".json"));
 }
 
+function stripJsonExtension(fileName: string): string {
+  return fileName.replace(/\.json$/i, "");
+}
+
+function normalizeSlugInput(slug: string): string {
+  return slug.trim().replace(/^\//, "").replace(/\.json$/i, "");
+}
+
+export function resolveArticleSlug(slug: string): string | null {
+  const normalized = normalizeSlugInput(slug);
+  if (!normalized) {
+    return null;
+  }
+
+  const directPath = path.join(CONTENT_DIR, `${normalized}.json`);
+  if (fs.existsSync(directPath)) {
+    return normalized;
+  }
+
+  const files = listArticleFiles();
+  const lower = normalized.toLowerCase();
+
+  const exactMatch = files.find((file) => stripJsonExtension(file).toLowerCase() === lower);
+  if (exactMatch) {
+    return stripJsonExtension(exactMatch);
+  }
+
+  const suffixMatch = files.find((file) => {
+    const base = stripJsonExtension(file);
+    const withoutPrefix = base.replace(/^\d+-/, "");
+    return withoutPrefix.toLowerCase() === lower;
+  });
+
+  if (suffixMatch) {
+    return stripJsonExtension(suffixMatch);
+  }
+
+  return null;
+}
+
 export function getAllArticleSlugs(): string[] {
   const files = listArticleFiles();
   if (files.length === 0) {
@@ -60,8 +100,12 @@ function readJson(filePath: string): any | null {
 }
 
 export function readArticleJson(slug: string): Article | null {
-  const p = path.join(CONTENT_DIR, `${slug}.json`);
-  
+  const resolvedSlug = resolveArticleSlug(slug) ?? slug;
+  if (resolvedSlug !== slug) {
+    console.log(`Resolved article slug '${slug}' to '${resolvedSlug}'`);
+  }
+  const p = path.join(CONTENT_DIR, `${resolvedSlug}.json`);
+
   try {
     const raw = readJson(p);
     if (!raw) {
@@ -71,8 +115,8 @@ export function readArticleJson(slug: string): Article | null {
     }
 
     // Ensure slug is set
-    raw.slug = raw.slug ?? slug;
-    
+    raw.slug = raw.slug ?? resolvedSlug;
+
     // Validate required fields
     if (!raw.title) {
       console.warn(`Article ${slug} missing title`);
@@ -103,7 +147,7 @@ function createFallbackArticle(slug: string): Article {
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
   console.log(`Processing article: ${slug}`);
-  
+
   try {
     const raw = readArticleJson(slug);
     if (!raw) {
