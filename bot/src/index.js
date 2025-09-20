@@ -25,6 +25,7 @@ import { PersonalityService } from './services/personalityService.js';
 import { CommunityEngagementService } from './services/communityEngagementService.js';
 import { RandomChatterService } from './services/randomChatterService.js';
 import { CommandRegistry } from './services/commandRegistry.js';
+import { GreetingDetectionService } from './services/greetingDetectionService.js';
 
 /* --------------------------- Enhanced Error Handling --------------------------- */
 process.on('uncaughtException', (error) => {
@@ -78,6 +79,8 @@ const NAME_PATTERNS = [
   /who\s*are\s*you\b/i,
   /what\s*do\s*we\s*call\s*you/i
 ];
+
+const greetingDetectionService = new GreetingDetectionService();
 
 /* --------------------------- Discord Client Setup --------------------------- */
 const client = new Client({
@@ -607,6 +610,8 @@ client.on('messageCreate', async (message) => {
     logger.error({ error: String(error), messageId: message.id }, 'Failed to record community activity');
   }
 
+  if (userDoc?.shadowbanned) return;
+
   if (commandRegistry) {
     try {
       const handled = await commandRegistry.handle(message, userDoc);
@@ -616,68 +621,56 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  const gmMatch = /^gm\b/i.test(content);
-  if (gmMatch) {
-    const result = await CommunityEngagementService.handleGreeting(message, 'gm', userDoc);
-    if (result?.reason === 'cooldown') {
-      let cooldownLine = 'Nice hustle, but that GM is already logged.';
-      if (result?.nextAvailableAt instanceof Date) {
-        const ts = Math.floor(result.nextAvailableAt.getTime() / 1000);
-        cooldownLine += ` Try again <t:${ts}:R>.`;
+  const detectionConfig = GreetingDetectionService.getDetectionConfig(Settings);
+  const greeting = greetingDetectionService.detectGreeting(content, detectionConfig);
+
+  if (greeting?.type === 'gm' || greeting?.type === 'gn') {
+    if (greeting.confidence === 'low') {
+      const emoji = greeting.type === 'gm' ? '🌅' : '🌙';
+      try {
+        await message.react(emoji);
+      } catch (error) {
+        logger.debug({ error: String(error), emoji }, 'Failed to react to emoji-only greeting');
       }
-      await message.reply(PersonalityService.wrap(cooldownLine, { user: message.author, noSuffix: true }));
       return;
     }
 
-    let reply = randomFrom(gmResponses) || 'gm';
-    const highlights = [];
-    if (result?.streak) {
-      highlights.push(`streak: ${result.streak}`);
-    }
-    if (result?.count) {
-      highlights.push(`total logged: ${result.count}`);
-    }
-    if (result?.achievements?.length) {
-      highlights.push(`unlocked ${result.achievements.map(a => `**${a.label}**`).join(', ')}`);
-    }
-    if (highlights.length) {
-      reply += `\n${highlights.join(' • ')}`;
-    }
-
-    await message.reply(PersonalityService.wrap(reply, { user: message.author }));
-    return;
-  }
-
-  const gnMatch = /^gn\b/i.test(content);
-  if (gnMatch) {
-    const result = await CommunityEngagementService.handleGreeting(message, 'gn', userDoc);
-    if (result?.reason === 'cooldown') {
-      let cooldownLine = 'Logged a GN already. Power down properly before trying again.';
-      if (result?.nextAvailableAt instanceof Date) {
-        const ts = Math.floor(result.nextAvailableAt.getTime() / 1000);
-        cooldownLine += ` Fresh attempt <t:${ts}:R>.`;
+    if (greeting.confidence === 'very_low') {
+      logger.debug({ content, greeting }, 'Greeting detection confidence too low; skipping automation');
+    } else {
+      const result = await CommunityEngagementService.handleGreeting(message, greeting.type, userDoc);
+      if (result?.reason === 'cooldown') {
+        let cooldownLine = greeting.type === 'gm'
+          ? 'Nice hustle, but that GM is already logged.'
+          : 'Logged a GN already. Power down properly before trying again.';
+        if (result?.nextAvailableAt instanceof Date) {
+          const ts = Math.floor(result.nextAvailableAt.getTime() / 1000);
+          cooldownLine += greeting.type === 'gm'
+            ? ` Try again <t:${ts}:R>.`
+            : ` Fresh attempt <t:${ts}:R>.`;
+        }
+        await message.reply(PersonalityService.wrap(cooldownLine, { user: message.author, noSuffix: true }));
+        return;
       }
-      await message.reply(PersonalityService.wrap(cooldownLine, { user: message.author, noSuffix: true }));
+
+      let reply = greeting.type === 'gm' ? (randomFrom(gmResponses) || 'gm') : (randomFrom(GN_RESPONSES) || 'gn');
+      const highlights = [];
+      if (result?.streak) {
+        highlights.push(greeting.type === 'gm' ? `streak: ${result.streak}` : `night streak: ${result.streak}`);
+      }
+      if (result?.count) {
+        highlights.push(greeting.type === 'gm' ? `total logged: ${result.count}` : `total clock-outs: ${result.count}`);
+      }
+      if (result?.achievements?.length) {
+        highlights.push(`unlocked ${result.achievements.map(a => `**${a.label}**`).join(', ')}`);
+      }
+      if (highlights.length) {
+        reply += `\n${highlights.join(' • ')}`;
+      }
+
+      await message.reply(PersonalityService.wrap(reply, { user: message.author }));
       return;
     }
-
-    let reply = randomFrom(GN_RESPONSES) || 'gn';
-    const highlights = [];
-    if (result?.streak) {
-      highlights.push(`night streak: ${result.streak}`);
-    }
-    if (result?.count) {
-      highlights.push(`total clock-outs: ${result.count}`);
-    }
-    if (result?.achievements?.length) {
-      highlights.push(`unlocked ${result.achievements.map(a => `**${a.label}**`).join(', ')}`);
-    }
-    if (highlights.length) {
-      reply += `\n${highlights.join(' • ')}`;
-    }
-
-    await message.reply(PersonalityService.wrap(reply, { user: message.author }));
-    return;
   }
 
   const ownerPattern = OWNER_PATTERNS.find(pattern => pattern.test(lowerContent));
@@ -703,52 +696,15 @@ client.on('messageCreate', async (message) => {
     const pool = [...cryptoJokes, ...techFacts];
     const response = randomFrom(pool) || 'Fine. Insert wry crypto wisdom here.';
     await message.reply(PersonalityService.wrap(response, { user: message.author }));
-
-  const userRecord = await CommunityEngagementService.recordMessage(message);
-  if (userRecord?.shadowbanned) return;
-
-  if (commandRegistry && content.startsWith(Settings.prefix || '!')) {
-    const handled = await commandRegistry.handle(message, userRecord);
-    if (handled) return;
-  }
-
-  const normalized = content.toLowerCase();
-
-  if (/^gm\b/.test(normalized)) {
-    const result = await CommunityEngagementService.handleGreeting(message, 'gm', userRecord);
-    if (result.updated) {
-      await message.reply(PersonalityService.wrap(randomFrom(gmResponses), { user: message.author }));
-      if (result.achievements?.length) {
-        const unlocked = result.achievements.map(a => `**${a.label}**`).join(', ');
-        await message.reply(PersonalityService.wrap(`Achievement unlocked: ${unlocked}`, { user: message.author, noSuffix: true }));
-      }
-    }
     return;
   }
 
-  if (/^gn\b/.test(normalized)) {
-    const result = await CommunityEngagementService.handleGreeting(message, 'gn', userRecord);
-    if (result.updated) {
-      await message.reply(PersonalityService.wrap(randomFrom(GN_RESPONSES), { user: message.author }));
-      if (result.achievements?.length) {
-        const unlocked = result.achievements.map(a => `**${a.label}**`).join(', ');
-        await message.reply(PersonalityService.wrap(`Night shift unlocked: ${unlocked}`, { user: message.author, noSuffix: true }));
-      }
-    }
-    return;
-  }
-
-  if (/(who\s+(owns|made|built)|owner|what\s+is\s+your\s+name|who\s+do\s+you\s+belong)/i.test(normalized)) {
-    await message.reply(PersonalityService.ownerInfoReply(content));
-    return;
-  }
-
-  if (/(tell me a joke|make me laugh)/i.test(normalized)) {
+  if (/(tell me a joke|make me laugh)/i.test(lowerContent)) {
     await message.reply(PersonalityService.wrap(randomFrom(cryptoJokes), { user: message.author }));
     return;
   }
 
-  if (/(drop a fact|teach me|random fact)/i.test(normalized)) {
+  if (/(drop a fact|teach me|random fact)/i.test(lowerContent)) {
     await message.reply(PersonalityService.wrap(randomFrom(techFacts), { user: message.author }));
     return;
   }

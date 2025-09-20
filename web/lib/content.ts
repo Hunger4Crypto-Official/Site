@@ -1,4 +1,3 @@
-export * from './content/index';
 import fs from "fs";
 import path from "path";
 import type { Article, Section } from "./types";

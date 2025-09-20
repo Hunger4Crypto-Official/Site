@@ -15,5 +15,8 @@ export const Settings = {
   chatboxChannelId: process.env.CHATBOX_CHANNEL_ID || '',
   gmCooldownHours: Number(process.env.GM_COOLDOWN_HOURS || 4),
   gnCooldownHours: Number(process.env.GN_COOLDOWN_HOURS || 4),
-  resurrectionThresholdHours: Number(process.env.RESURRECTION_THRESHOLD_HOURS || 72)
+  resurrectionThresholdHours: Number(process.env.RESURRECTION_THRESHOLD_HOURS || 72),
+  allowExtendedGreetings: process.env.ALLOW_EXTENDED_GREETINGS === 'true',
+  allowEmojiGreetings: process.env.ALLOW_EMOJI_GREETINGS === 'true',
+  allowMultiLanguageGreetings: process.env.ALLOW_MULTI_LANGUAGE_GREETINGS === 'true'
 };
