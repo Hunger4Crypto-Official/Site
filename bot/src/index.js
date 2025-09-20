@@ -493,7 +493,6 @@ client.once('ready', async () => {
     ping: client.ws.ping
   }, 'Discord bot ready 🚀');
 
- codex/summarize-chatbot-feature-improvements-iurbcj
   CommunityEngagementService.initialize(client);
   RandomChatterService.initialize(client);
   commandRegistry = new CommandRegistry(client);

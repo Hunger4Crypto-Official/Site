@@ -9,7 +9,6 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
- codex/summarize-chatbot-feature-improvements-evhk5v
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,7 +97,6 @@ codex/suggest-improvements-for-web-portion
     clearResetTimer();
 
     clearStatusTimeout();
- main
     if (!email.trim()) {
       setStatus("error");
       setMessage("Please enter your email address");
@@ -172,7 +170,6 @@ codex/suggest-improvements-for-web-portion-5xum2w
       setMessage("");
       timeoutRef.current = null;
     }, 5000);
- main
   };
 
   useEffect(() => {

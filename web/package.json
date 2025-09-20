@@ -8,12 +8,11 @@
     "start": "next start -p $PORT",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
- codex/summarize-chatbot-feature-improvements-evhk5v
+    "test": "npm run lint && npm run type-check",
     "test": "npm run lint && npm run type-check",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:jest": "jest",
-main
     "analyze": "ANALYZE=true npm run build",
     "security-check": "npm audit --audit-level=high"
   },
@@ -26,6 +25,7 @@ main
     "remark-rehype": "^11.1.1",
     "rehype-stringify": "^10.0.1",
     "recharts": "^2.12.7",
+    "lru-cache": "^10.1.0",
     "typescript": "^5.6.3",
     "@types/node": "^22.7.5",
     "@types/react": "^18.3.11",

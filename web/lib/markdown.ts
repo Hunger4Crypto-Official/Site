@@ -11,7 +11,6 @@ const DOMPurify = createDOMPurify(
 );
 
 export async function mdToHtml(md: string): Promise<string> {
- codex/summarize-chatbot-feature-improvements-evhk5v
   const source = typeof md === "string" ? md : "";
 
   const file = await unified()
@@ -49,5 +48,4 @@ export async function mdToHtml(md: string): Promise<string> {
     // Return sanitized fallback
     return DOMPurify.sanitize(md);
   }
- main
 }

@@ -4,13 +4,16 @@
   "type": "module",
   "description": "Shared utilities and types for H4C monorepo",
   "main": "index.js",
+  "types": "./types/index.ts",
   "exports": {
     ".": "./index.js",
     "./config": "./config/index.js",
+    "./config/environment": "./config/environment.js",
     "./constants": "./constants.js",
     "./criteria": "./criteria.js",
     "./utils": "./utils.js",
     "./utils/logger": "./utils/logger.js",
+    "./utils/errorHandling": "./utils/errorHandling.js",
     "./cache": "./CacheManager.js",
     "./database/connection": "./database/connection.js",
     "./database/redis": "./database/redis.js",
@@ -18,6 +21,8 @@
     "./errors": "./errors/AppError.js",
     "./errors/handler": "./errors/ErrorHandler.js",
     "./security/jwt": "./security/jwt.js",
+    "./security/validation": "./security/validation.js",
+    "./types": "./types/index.ts"
     "./security/validation": "./security/validation.js"
   },
   "scripts": {

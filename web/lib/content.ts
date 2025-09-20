@@ -1,3 +1,4 @@
+export * from './content/index';
 import fs from "fs";
 import path from "path";
 import type { Article, Section } from "./types";
@@ -303,3 +304,4 @@ export function getAllArticleMetadata(): Array<Pick<Article, "slug" | "title" | 
   
   return metadata;
 }
+

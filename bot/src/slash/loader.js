@@ -19,7 +19,6 @@ import { createWrapReply } from './wrapReply.js';
 import { logger } from '../utils/logger.js';
 
 const wrapReply = createWrapReply((response, ctx) => PersonalityService.wrap(response, ctx));
-main
 
 function buildDefinitions(client) {
   return [
@@ -170,6 +169,9 @@ function buildDefinitions(client) {
         )
         .addSubcommand(subcommand =>
           subcommand
+        )
+        .addSubcommand(subcommand =>
+          subcommand
             .setName('remove')
             .setDescription('Remove your email and unsubscribe')
         )
@@ -203,10 +205,15 @@ export async function loadSlashCommands(client) {
     client.slashCommands.clear();
   }
 
+  if (!client.slashCommands || typeof client.slashCommands.set !== 'function') {
+    client.slashCommands = new Map();
+  } else if (typeof client.slashCommands.clear === 'function') {
+    client.slashCommands.clear();
+  }
+
   for (const def of definitions) {
     client.slashCommands.set(def.name, def);
   }
-
 
   for (const def of definitions) {
     client.slashCommands.set(def.name, def);
@@ -226,6 +233,26 @@ export async function loadSlashCommands(client) {
       }
 
       const startTime = Date.now();
+
+      try {
+        await command.execute(interaction);
+        const duration = Date.now() - startTime;
+
+        logger.info({
+          command: interaction.commandName,
+          user: interaction.user.tag,
+          guild: interaction.guild?.name,
+          duration
+        }, 'Slash command executed successfully (fallback handler)');
+      } catch (error) {
+        const duration = Date.now() - startTime;
+
+        logger.error({
+          error,
+          command: interaction.commandName,
+          user: interaction.user.tag,
+          duration
+        }, 'Slash command execution failed (fallback handler)');
 
       try {
         await command.execute(interaction);
@@ -290,7 +317,6 @@ function buildDefinitions(client) {
     client.__h4cSlashHandlerBound = true;
   }
 
-=======
     },
     {
       name: 'gn',
@@ -354,7 +380,6 @@ function buildDefinitions(client) {
         let content = `Deploying meme artillery: ${memeUrl}`;
         if (unlocks.length) {
           content += `\nAlso unlocked: ${unlocks.map(a => `**${a.label}**`).join(', ')}`;
- main
         }
         await wrapReply(interaction, content, { noSuffix: true });
       }

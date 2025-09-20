@@ -13,6 +13,8 @@ function loadJson(file, key) {
   return firstKey ? payload[firstKey] : [];
 }
 
+}
+
 // Fix for ES modules - get current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,7 +46,6 @@ function loadJson(file, key) {
 }
 
 // Load all responses with fallbacks
- main
 export const chaosEvents = loadJson('chaos_events.json', 'ChaosEvents');
 export const loreDrops = loadJson('lore_drops.json', 'LoreDrops');
 export const quickQuips = loadJson('quick_quips.json', 'QuickQuips');
@@ -53,6 +54,8 @@ export const gmResponses = loadJson('gmResponses.json', 'GMResponses');
 export const cryptoJokes = loadJson('cryptoJokes.json', 'CryptoJokes');
 export const techFacts = loadJson('techCryptoFacts.json', 'TechCryptoFacts');
 export const memeVault = loadJson('memes.json', 'Memes');
+export function randomFrom(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return undefined;
 
 export function randomFrom(arr) {
   if (!Array.isArray(arr) || arr.length === 0) return undefined;

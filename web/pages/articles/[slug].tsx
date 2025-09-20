@@ -12,6 +12,7 @@ export default function ArticlePage({ article }: Props) {
       description={article.description}
       coverImage={article.coverImage}
       sections={article.sections}
+      charts={article.charts}
     />
   );
 }
