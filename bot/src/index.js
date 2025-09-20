@@ -7,7 +7,7 @@ import { Client, GatewayIntentBits, Partials, Collection } from 'discord.js';
 
 // Import all advanced utilities and services
 import { logger } from './utils/logger.js';
-import { Env, assertRequiredEnv, assertStrongSecret, assertUrlNoV2 } from './utils/envGuard.js';
+import { assertRequiredEnv, assertStrongSecret, assertUrlNoV2 } from './utils/envGuard.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { metricsMiddleware, metricsHandler } from './middleware/metrics.js';
 import { tokenBucket, adminGuard } from './middleware/rateLimit.js';
@@ -437,6 +437,7 @@ app.get('/api/stats', async (req, res) => {
           memory: memoryMatch ? memoryMatch[1] : 'unknown'
         };
       } catch (redisError) {
+        logger.warn({ error: String(redisError) }, 'Failed to fetch redis info');
         stats.redis = { status: redis.status, error: 'Could not fetch info' };
       }
     }

@@ -431,6 +431,3 @@ export function startAutoAwards(client) {
     }
   };
 }
-
-/**
- * Get auto-a

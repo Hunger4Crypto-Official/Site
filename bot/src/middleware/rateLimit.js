@@ -193,7 +193,6 @@ export function tokenBucket(options = {}) {
     bucket = 'global'
   } = options;
 
-  return async function rateLimit(
   return async function rateLimit(req, res, next) {
     const clientIp = getClientIp(req);
     
