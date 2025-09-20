@@ -28,36 +28,16 @@
 
     "test": "npm run test:shared && npm run test:web && npm run test:bot",
     "test:shared": "npm --prefix shared test",
-    "test:web": "npm --prefix web test",
+    "test:web": "npm --prefix web run test:jest",
     "test:bot": "npm --prefix bot test",
     "test:unit": "npm run test",
-    "test:integration": "node tests/smoke.js",
+    "test:integration": "node tests/smoke.js && node tests/integration-award.js && node tests/integration-markdown.js",
 
     "lint": "npm run lint:shared && npm run lint:web && npm run lint:bot",
     "lint:shared": "npm --prefix shared run lint",
     "lint:web": "npm --prefix web run lint",
     "lint:bot": "npm --prefix bot run lint",
     "lint:fix": "npm run lint:shared -- --fix && npm run lint:web -- --fix && npm run lint:bot -- --fix",
-
-    "build:shared": "cd shared && npm run build",
-    "build:web": "cd web && npm run build",
-    "build:bot": "cd bot && npm run build",
-    
-    "start": "concurrently \"npm --prefix web run start\" \"npm --prefix bot run start\"",
-    "start:web": "cd web && npm run start",
-    "start:bot": "cd bot && npm run start",
-    
-    "test": "npm run test:shared && npm run test:bot && npm run test:web",
-    "test:shared": "cd shared && npm test",
-    "test:bot": "cd bot && npm test",
-    "test:web": "cd web && npm test",
-    "test:integration": "node tests/smoke.js && node tests/integration-award.js && node tests/integration-markdown.js",
-    
-    "lint": "npm run lint:shared && npm run lint:bot && npm run lint:web",
-    "lint:shared": "cd shared && npm run lint",
-    "lint:bot": "cd bot && npm run lint",
-    "lint:web": "cd web && npm run lint",
-    "lint:fix": "npm run lint:shared -- --fix && npm run lint:bot -- --fix && npm run lint:web -- --fix",
 
     "type-check": "npm run type-check:web && npm run type-check:bot",
     "type-check:web": "npm --prefix web run type-check",
