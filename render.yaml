@@ -4,6 +4,7 @@ services:
     name: h4c-web
     env: node
     plan: starter  # Free tier
+    buildCommand: ./scripts/render-build.sh
     buildCommand: |
       echo "=== H4C Web Build Starting ===" &&
       echo "Node: $(node --version)" &&
