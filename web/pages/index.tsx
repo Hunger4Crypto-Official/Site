@@ -3,16 +3,23 @@ import Link from "next/link";
 import type { GetStaticProps } from "next";
 import dynamic from "next/dynamic";
 
-import { getAllArticles } from "../lib/content";
+import { getAllArticles, resolveArticleSlug } from "../lib/content";
 import type { Article } from "../lib/types";
 
 const EmailSignup = dynamic(() => import("../components/EmailSignup"), { ssr: false });
 
 type Props = {
   articles: Array<Pick<Article, "slug" | "title" | "description" | "coverImage" | "updatedAt">>;
+  featuredSlugs: {
+    foreword: string;
+    algorand: string;
+  };
 };
 
-export default function HomePage({ articles }: Props) {
+export default function HomePage({ articles, featuredSlugs }: Props) {
+  const startReadingSlug = featuredSlugs.foreword || "foreword";
+  const learnMoreSlug = featuredSlugs.algorand || "algorand";
+
   return (
     <>
       <Head>
@@ -37,8 +44,8 @@ export default function HomePage({ articles }: Props) {
             >
               Browse Articles
             </Link>
-            <Link 
-              href="/articles/foreword" 
+            <Link
+              href={`/articles/${startReadingSlug}`}
               className="px-6 py-3 border border-slate-600 hover:border-slate-500 rounded-lg font-medium transition-colors"
             >
               Start Reading
@@ -96,8 +103,8 @@ export default function HomePage({ articles }: Props) {
             >
               Join Discord
             </a>
-            <Link 
-              href="/articles/algorand" 
+            <Link
+              href={`/articles/${learnMoreSlug}`}
               className="px-6 py-3 border border-slate-600 hover:border-slate-500 rounded-lg font-medium transition-colors"
             >
               Learn About $MemO
@@ -111,7 +118,7 @@ export default function HomePage({ articles }: Props) {
 
 export const getStaticProps: GetStaticProps<Props> = async () => {
   console.log('Starting getStaticProps for home page...');
-  
+
   try {
     const arts = await getAllArticles();
     const articles = arts.map((a) => ({
@@ -121,12 +128,22 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
       coverImage: a.coverImage ?? null,
       updatedAt: a.updatedAt ?? null,
     }));
-    
+
+    const resolveOrFallback = (slug: string) => resolveArticleSlug(slug) ?? slug;
+    const featuredSlugs = {
+      foreword: resolveOrFallback("foreword"),
+      algorand: resolveOrFallback("algorand"),
+    };
+
     console.log(`Home page: Successfully processed ${articles.length} articles`);
-    return { props: { articles }, revalidate: 60 * 60 * 24 };
+    return { props: { articles, featuredSlugs }, revalidate: 60 * 60 * 24 };
   } catch (error) {
     console.error('Error in getStaticProps for home page:', error);
     // Return empty articles array rather than failing
-    return { props: { articles: [] }, revalidate: 60 * 60 * 24 };
+    const fallbackFeatured = {
+      foreword: "foreword",
+      algorand: "algorand",
+    };
+    return { props: { articles: [], featuredSlugs: fallbackFeatured }, revalidate: 60 * 60 * 24 };
   }
 };
