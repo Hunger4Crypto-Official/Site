@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type EmailSignupProps = {
   className?: string;
@@ -9,10 +9,26 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearStatusTimeout = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearStatusTimeout();
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    clearStatusTimeout();
+
     if (!email.trim()) {
       setStatus("error");
       setMessage("Please enter your email address");
@@ -28,7 +44,7 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
     }
 
     setStatus("loading");
-    
+
     try {
       const response = await fetch("/api/email/subscribe", {
         method: "POST",
@@ -54,9 +70,10 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
     }
 
     // Clear status after 5 seconds
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       setStatus("idle");
       setMessage("");
+      timeoutRef.current = null;
     }, 5000);
   };
 

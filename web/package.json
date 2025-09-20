@@ -8,6 +8,8 @@
     "start": "next start -p $PORT",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "analyze": "ANALYZE=true npm run build",
     "security-check": "npm audit --audit-level=high"
   },
@@ -32,7 +34,11 @@
   "devDependencies": {
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.16",
-    "@next/bundle-analyzer": "14.2.16"
+    "@next/bundle-analyzer": "14.2.16",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "jsdom": "^24.1.0",
+    "vitest": "^2.1.4"
   },
   "engines": {
     "node": ">=18.18.0",
