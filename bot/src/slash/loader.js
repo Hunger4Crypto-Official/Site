@@ -6,15 +6,10 @@ import { emailHandler, emailRemoveHandler, emailStatusHandler } from './suites/e
 import { randomFrom, quickQuips, chaosEvents, loreDrops, storyJabs, gmResponses, cryptoJokes, techFacts, memeVault } from '../utils/botResponses.js';
 import { PersonalityService } from '../services/personalityService.js';
 import { CommunityEngagementService } from '../services/communityEngagementService.js';
+import { createWrapReply } from './wrapReply.js';
 import { logger } from '../utils/logger.js';
 
-function wrapReply(interaction, response, context = {}) {
-  const payload = PersonalityService.wrap(response, { user: interaction.user, ...context });
-  if (typeof payload === 'string') {
-    return interaction.reply({ content: payload, ephemeral: context.ephemeral });
-  }
-  return interaction.reply({ ...payload, ephemeral: context.ephemeral });
-}
+const wrapReply = createWrapReply((response, ctx) => PersonalityService.wrap(response, ctx));
  codex/summarize-chatbot-feature-improvements-iurbcj
 
 function buildDefinitions(client) {

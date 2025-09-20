@@ -18,7 +18,10 @@
         "name": "next"
       }
     ],
+ codex/suggest-improvements-for-web-portion-hqrpi8
     "types": ["node", "jest"],
+    "types": ["node"],
+main
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
@@ -32,6 +35,7 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "**/__tests__/**"
   ]
 }
