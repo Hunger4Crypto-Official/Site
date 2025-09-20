@@ -1,14 +1,36 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import type { Article, RawArticle } from '@h4c/shared/types';
 import { contentCache } from './cache';
 import { ArticleProcessor } from './processor';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Fix the path resolution for both development and production
+const getContentRoot = () => {
+  if (typeof window !== 'undefined') {
+    // Client-side, should not happen
+    return '';
+  }
+  
+  // Try multiple possible paths
+  const possiblePaths = [
+    path.resolve(process.cwd(), 'content', 'mega_article'),
+    path.resolve(process.cwd(), '..', 'content', 'mega_article'),
+    path.resolve(process.cwd(), 'web', 'content', 'mega_article'),
+  ];
+  
+  for (const testPath of possiblePaths) {
+    if (fs.existsSync(testPath)) {
+      return testPath;
+    }
+  }
+  
+  // Fallback - create if doesn't exist
+  const fallbackPath = path.resolve(process.cwd(), 'content', 'mega_article');
+  console.warn(`Content directory not found, using fallback: ${fallbackPath}`);
+  return fallbackPath;
+};
 
-const CONTENT_ROOT = path.resolve(__dirname, '../../../content/mega_article');
+const CONTENT_ROOT = getContentRoot();
 
 const normaliseSlug = (slug: string) => slug.replace(/\.json$/, '');
 
@@ -49,6 +71,10 @@ export class ArticleJSONLoader {
 
   listArticleFiles(): string[] {
     try {
+      if (!fs.existsSync(CONTENT_ROOT)) {
+        console.warn(`Content directory does not exist: ${CONTENT_ROOT}`);
+        return [];
+      }
       return fs.readdirSync(CONTENT_ROOT).filter(file => file.endsWith('.json'));
     } catch (error) {
       console.error('Failed to list article files:', error);
@@ -59,6 +85,8 @@ export class ArticleJSONLoader {
   getAllSlugs(): string[] {
     const files = this.listArticleFiles();
     if (files.length === 0) {
+      // Return fallback slugs to prevent build failure
+      console.warn('No article files found, using fallback slugs');
       return ['foreword', 'bitcoin', 'ethereum', 'algorand'];
     }
     return files.map(normaliseSlug);
@@ -71,6 +99,10 @@ export class ArticleJSONLoader {
     }
 
     try {
+      if (!fs.existsSync(CONTENT_ROOT)) {
+        return null;
+      }
+      
       const files = fs.readdirSync(CONTENT_ROOT);
       const target = files.find(file => normaliseSlug(file) === slug);
       return target ? path.join(CONTENT_ROOT, target) : null;
@@ -82,11 +114,13 @@ export class ArticleJSONLoader {
 
   private registerWatcher() {
     try {
-      this.watcher = fs.watch(CONTENT_ROOT, (eventType, filename) => {
-        if (!filename || !filename.endsWith('.json')) return;
-        const slug = normaliseSlug(filename);
-        contentCache.delete(`article:${slug}`);
-      });
+      if (fs.existsSync(CONTENT_ROOT)) {
+        this.watcher = fs.watch(CONTENT_ROOT, (eventType, filename) => {
+          if (!filename || !filename.endsWith('.json')) return;
+          const slug = normaliseSlug(filename);
+          contentCache.delete(`article:${slug}`);
+        });
+      }
     } catch (error) {
       console.warn('Failed to watch article directory:', error);
     }
