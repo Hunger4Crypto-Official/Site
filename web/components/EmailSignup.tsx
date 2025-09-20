@@ -9,6 +9,7 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+ codex/suggest-improvements-for-web-portion
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearResetTimer = () => {
@@ -30,12 +31,29 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   useEffect(() => {
     return () => {
       clearResetTimer();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearStatusTimeout = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearStatusTimeout();
+ main
     };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+codex/suggest-improvements-for-web-portion
     clearResetTimer();
+
+    clearStatusTimeout();
+ main
 
     if (!email.trim()) {
       setStatus("error");
@@ -52,7 +70,7 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
     }
 
     setStatus("loading");
-    
+
     try {
       const response = await fetch("/api/email/subscribe", {
         method: "POST",
@@ -77,7 +95,15 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
       setMessage("Network error. Please try again.");
     }
 
+ codex/suggest-improvements-for-web-portion
     scheduleReset();
+    // Clear status after 5 seconds
+    timeoutRef.current = setTimeout(() => {
+      setStatus("idle");
+      setMessage("");
+      timeoutRef.current = null;
+    }, 5000);
+ main
   };
 
   return (
