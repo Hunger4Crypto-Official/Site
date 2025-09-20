@@ -9,7 +9,9 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+ codex/suggest-improvements-for-web-portion-hqrpi8
  codex/suggest-improvements-for-web-portion
+ main
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearResetTimer = () => {
@@ -31,6 +33,7 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   useEffect(() => {
     return () => {
       clearResetTimer();
+ codex/suggest-improvements-for-web-portion-hqrpi8
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearStatusTimeout = () => {
@@ -44,17 +47,22 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
     return () => {
       clearStatusTimeout();
  main
+ main
     };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+ codex/suggest-improvements-for-web-portion-hqrpi8
+    clearResetTimer();
+
 codex/suggest-improvements-for-web-portion
     clearResetTimer();
 
     clearStatusTimeout();
  main
 
+ main
     if (!email.trim()) {
       setStatus("error");
       setMessage("Please enter your email address");
@@ -95,6 +103,9 @@ codex/suggest-improvements-for-web-portion
       setMessage("Network error. Please try again.");
     }
 
+ codex/suggest-improvements-for-web-portion-hqrpi8
+    scheduleReset();
+
  codex/suggest-improvements-for-web-portion
     scheduleReset();
     // Clear status after 5 seconds
@@ -104,6 +115,7 @@ codex/suggest-improvements-for-web-portion
       timeoutRef.current = null;
     }, 5000);
  main
+main
   };
 
   return (

@@ -1,9 +1,14 @@
+ codex/suggest-improvements-for-web-portion-hqrpi8
+/* eslint-env jest */
+
  codex/suggest-improvements-for-web-portion
+ main
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import EmailSignup from "../EmailSignup";
 
+ codex/suggest-improvements-for-web-portion-hqrpi8
 declare const describe: (name: string, fn: () => void) => void;
 declare const it: (name: string, fn: () => Promise<void> | void) => void;
 declare const beforeEach: (fn: () => void) => void;
@@ -11,6 +16,7 @@ declare const afterEach: (fn: () => void) => void;
 declare const expect: (value: unknown) => any;
 declare const jest: any;
 
+ main
 describe("EmailSignup", () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -51,6 +57,7 @@ describe("EmailSignup", () => {
 
     expect(hasUnmountWarning).toBe(false);
 
+ codex/suggest-improvements-for-web-portion-hqrpi8
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -96,6 +103,7 @@ describe("EmailSignup", () => {
         "Can't perform a React state update on an unmounted component."
       )
     );
+ main
  main
   });
 });
