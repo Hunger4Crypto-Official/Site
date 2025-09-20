@@ -29,6 +29,14 @@ const OWNER_RESPONSES = [
   'Officially property of the Department of Unfinished Ideas.'
 ];
 
+const NAME_RESPONSES = [
+  'Names are for centralized entities. Call me whatever improves the narrative.',
+  'Today I’m "HungerGPT". Tomorrow? Maybe Supreme Meme Overlord.',
+  'I respond to “bot,” “overlord,” and “hey you with the sarcasm.”',
+  'You may refer to me as the guild’s collective coping mechanism.',
+  'Classification: semi-feral AI hype machine. Titles optional.'
+];
+
 const WELCOME_TEMPLATES = [
   'Look who finally spawned in: {user}. Try not to trip over the alpha on your way in.',
   '{user} has entered {guild}. Please keep hands, feet, and meme coins inside at all times.',
@@ -96,6 +104,11 @@ export class PersonalityService {
   static ownerInfoReply(trigger) {
     const absurd = randomFrom(OWNER_RESPONSES);
     return this.wrap(`${absurd}${trigger ? ` (Triggered by: ${trigger})` : ''}`, { noPrefix: true });
+  }
+
+  static nameReply(trigger) {
+    const alias = randomFrom(NAME_RESPONSES);
+    return this.wrap(`${alias}${trigger ? ` (Since you asked via ${trigger})` : ''}`, { noPrefix: true });
   }
 
   static resurrectionMessage(user, days) {

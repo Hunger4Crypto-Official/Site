@@ -66,6 +66,19 @@ const GN_RESPONSES = [
   'Dream in memes and manifest in pumps. 🌌'
 ];
 
+const OWNER_PATTERNS = [
+  /who\s*(?:is|'s)\s*(?:the\s*)?(?:owner|creator)\b.*\b(?:bot|you)/i,
+  /who\s*owns\s*(?:this|the\s*bot|you)/i,
+  /who\s*made\s*(?:you|this)/i,
+  /who\s*controls\s*(?:you|this\s*bot)/i
+];
+
+const NAME_PATTERNS = [
+  /what\s*(?:is|'s)\s*(?:ya|your)\s*(?:name|deal)/i,
+  /who\s*are\s*you\b/i,
+  /what\s*do\s*we\s*call\s*you/i
+];
+
 /* --------------------------- Discord Client Setup --------------------------- */
 const client = new Client({
   intents: [
@@ -84,6 +97,8 @@ const client = new Client({
 
 client.slashCommands = new Collection();
 let commandRegistry;
+
+CommunityEngagementService.initialize(client);
 
 /* --------------------------- Express Server Setup --------------------------- */
 const app = express();
@@ -477,8 +492,6 @@ client.once('ready', async () => {
     ping: client.ws.ping
   }, 'Discord bot ready 🚀');
 
-  CommunityEngagementService.initialize(client);
-  RandomChatterService.initialize(client);
   commandRegistry = new CommandRegistry(client);
 
   // Load slash commands
@@ -498,7 +511,7 @@ client.once('ready', async () => {
   }
   
   // Initialize role management service
-  if (RoleManagementService?.initialize) {
+  if (RoleManagementService) {
     try {
       await RoleManagementService.initialize();
       logger.info('Role management service initialized');
@@ -508,7 +521,7 @@ client.once('ready', async () => {
   }
 
   // Initialize leaderboard service
-  if (AlgorandLeaderboardService?.initialize) {
+  if (AlgorandLeaderboardService) {
     try {
       await AlgorandLeaderboardService.initialize();
       logger.info('Algorand leaderboard service initialized');
@@ -516,6 +529,8 @@ client.once('ready', async () => {
       logger.error(error, 'Failed to initialize leaderboard service');
     }
   }
+
+  RandomChatterService.initialize(client);
 });
 
 client.on('error', (error) => {
@@ -536,122 +551,180 @@ client.on('guildMemberAdd', async (member) => {
   try {
     await CommunityEngagementService.ensureUser(member.user);
   } catch (error) {
-    logger.error({ error: String(error), member: member.id }, 'Failed to ensure user on join');
+    logger.warn({ error: String(error), memberId: member.id }, 'Failed to ensure user on join');
   }
 
-  const channelId = Settings.welcomeChannelId;
+  const channelId = Settings.welcomeChannelId || member.guild.systemChannelId;
   if (!channelId) return;
 
-  const channel = await CommunityEngagementService.resolveChannel(channelId);
-  if (!channel) return;
-
   try {
+    const channel = await CommunityEngagementService.resolveChannel(channelId);
+    if (!channel) return;
     await channel.send(PersonalityService.welcomeMessage(member));
   } catch (error) {
-    logger.error({ error: String(error), member: member.id }, 'Failed to send welcome message');
+    logger.error({ error: String(error), channelId }, 'Failed to send welcome message');
   }
 });
 
-// ----------- GM auto-reply handler -----------
+// ----------- Core community + personality handler -----------
 client.on('messageCreate', async (message) => {
   if (
     message.author.bot ||
     !message.guild ||
-    message.channel?.type !== 0
+    message.channel.type !== 0 // Only reply in text channels
   ) return;
 
   const content = message.content?.trim();
   if (!content) return;
 
-  const userRecord = await CommunityEngagementService.recordMessage(message);
-  if (userRecord?.shadowbanned) return;
+  const lowerContent = content.toLowerCase();
+  const addressedToBot = client.user ? message.mentions.users.has(client.user.id) : false;
 
-  if (commandRegistry && content.startsWith(Settings.prefix || '!')) {
-    const handled = await commandRegistry.handle(message, userRecord);
-    if (handled) return;
+  let userDoc;
+  try {
+    userDoc = await CommunityEngagementService.recordMessage(message);
+  } catch (error) {
+    logger.error({ error: String(error), messageId: message.id }, 'Failed to record community activity');
   }
 
-  const normalized = content.toLowerCase();
-
-  if (/^gm\b/.test(normalized)) {
-    const result = await CommunityEngagementService.handleGreeting(message, 'gm', userRecord);
-    if (result.updated) {
-      await message.reply(PersonalityService.wrap(randomFrom(gmResponses), { user: message.author }));
-      if (result.achievements?.length) {
-        const unlocked = result.achievements.map(a => `**${a.label}**`).join(', ');
-        await message.reply(PersonalityService.wrap(`Achievement unlocked: ${unlocked}`, { user: message.author, noSuffix: true }));
-      }
+  if (commandRegistry) {
+    try {
+      const handled = await commandRegistry.handle(message, userDoc);
+      if (handled) return;
+    } catch (error) {
+      logger.error({ error: String(error), messageId: message.id }, 'Command registry execution failed');
     }
-    return;
   }
 
-  if (/^gn\b/.test(normalized)) {
-    const result = await CommunityEngagementService.handleGreeting(message, 'gn', userRecord);
-    if (result.updated) {
-      await message.reply(PersonalityService.wrap(randomFrom(GN_RESPONSES), { user: message.author }));
-      if (result.achievements?.length) {
-        const unlocked = result.achievements.map(a => `**${a.label}**`).join(', ');
-        await message.reply(PersonalityService.wrap(`Night shift unlocked: ${unlocked}`, { user: message.author, noSuffix: true }));
+  const gmMatch = /^gm\b/i.test(content);
+  if (gmMatch) {
+    const result = await CommunityEngagementService.handleGreeting(message, 'gm', userDoc);
+    if (result?.reason === 'cooldown') {
+      let cooldownLine = 'Nice hustle, but that GM is already logged.';
+      if (result?.nextAvailableAt instanceof Date) {
+        const ts = Math.floor(result.nextAvailableAt.getTime() / 1000);
+        cooldownLine += ` Try again <t:${ts}:R>.`;
       }
+      await message.reply(PersonalityService.wrap(cooldownLine, { user: message.author, noSuffix: true }));
+      return;
     }
+
+    let reply = randomFrom(gmResponses) || 'gm';
+    const highlights = [];
+    if (result?.streak) {
+      highlights.push(`streak: ${result.streak}`);
+    }
+    if (result?.count) {
+      highlights.push(`total logged: ${result.count}`);
+    }
+    if (result?.achievements?.length) {
+      highlights.push(`unlocked ${result.achievements.map(a => `**${a.label}**`).join(', ')}`);
+    }
+    if (highlights.length) {
+      reply += `\n${highlights.join(' • ')}`;
+    }
+
+    await message.reply(PersonalityService.wrap(reply, { user: message.author }));
     return;
   }
 
-  if (/(who\s+(owns|made|built)|owner|what\s+is\s+your\s+name|who\s+do\s+you\s+belong)/i.test(normalized)) {
-    await message.reply(PersonalityService.ownerInfoReply(content));
+  const gnMatch = /^gn\b/i.test(content);
+  if (gnMatch) {
+    const result = await CommunityEngagementService.handleGreeting(message, 'gn', userDoc);
+    if (result?.reason === 'cooldown') {
+      let cooldownLine = 'Logged a GN already. Power down properly before trying again.';
+      if (result?.nextAvailableAt instanceof Date) {
+        const ts = Math.floor(result.nextAvailableAt.getTime() / 1000);
+        cooldownLine += ` Fresh attempt <t:${ts}:R>.`;
+      }
+      await message.reply(PersonalityService.wrap(cooldownLine, { user: message.author, noSuffix: true }));
+      return;
+    }
+
+    let reply = randomFrom(GN_RESPONSES) || 'gn';
+    const highlights = [];
+    if (result?.streak) {
+      highlights.push(`night streak: ${result.streak}`);
+    }
+    if (result?.count) {
+      highlights.push(`total clock-outs: ${result.count}`);
+    }
+    if (result?.achievements?.length) {
+      highlights.push(`unlocked ${result.achievements.map(a => `**${a.label}**`).join(', ')}`);
+    }
+    if (highlights.length) {
+      reply += `\n${highlights.join(' • ')}`;
+    }
+
+    await message.reply(PersonalityService.wrap(reply, { user: message.author }));
     return;
   }
 
-  if (/(tell me a joke|make me laugh)/i.test(normalized)) {
-    await message.reply(PersonalityService.wrap(randomFrom(cryptoJokes), { user: message.author }));
+  const ownerPattern = OWNER_PATTERNS.find(pattern => pattern.test(lowerContent));
+  if (ownerPattern && (addressedToBot || lowerContent.includes('bot') || lowerContent.includes('you'))) {
+    const match = lowerContent.match(ownerPattern);
+    const trigger = match?.[0]?.trim() || ownerPattern.source;
+    await message.reply(PersonalityService.ownerInfoReply(trigger));
     return;
   }
 
-  if (/(drop a fact|teach me|random fact)/i.test(normalized)) {
-    await message.reply(PersonalityService.wrap(randomFrom(techFacts), { user: message.author }));
+  const namePattern = NAME_PATTERNS.find(pattern => pattern.test(lowerContent));
+  if (namePattern && (addressedToBot || lowerContent.includes('bot') || lowerContent.includes('you'))) {
+    const match = lowerContent.match(namePattern);
+    const trigger = match?.[0]?.trim() || namePattern.source;
+    await message.reply(PersonalityService.nameReply(trigger));
     return;
+  }
+
+  if (
+    (addressedToBot || lowerContent.includes('bot') || lowerContent.includes('hunger') || lowerContent.includes('h4c')) &&
+    /(tell|drop|give|share).*(joke|fact)/i.test(lowerContent)
+  ) {
+    const pool = [...cryptoJokes, ...techFacts];
+    const response = randomFrom(pool) || 'Fine. Insert wry crypto wisdom here.';
+    await message.reply(PersonalityService.wrap(response, { user: message.author }));
   }
 });
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-
+  
   const command = client.slashCommands.get(interaction.commandName);
   if (!command) {
-    logger.warn({
-      command: interaction.commandName,
-      user: interaction.user.tag
+    logger.warn({ 
+      command: interaction.commandName, 
+      user: interaction.user.tag 
     }, 'Unknown command attempted');
     return;
   }
-
+  
   const startTime = Date.now();
-
+  
   try {
     await command.execute(interaction);
     const duration = Date.now() - startTime;
-
-    logger.info({
-      command: interaction.commandName,
+    
+    logger.info({ 
+      command: interaction.commandName, 
       user: interaction.user.tag,
       guild: interaction.guild?.name,
       duration
     }, 'Command executed successfully');
   } catch (error) {
     const duration = Date.now() - startTime;
-
-    logger.error({
-      error,
-      command: interaction.commandName,
+    
+    logger.error({ 
+      error, 
+      command: interaction.commandName, 
       user: interaction.user.tag,
       duration
     }, 'Command execution failed');
-
+    
     const reply = {
       content: 'There was an error executing this command. Please try again later.',
       ephemeral: true
     };
-
+    
     try {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(reply);
@@ -663,8 +736,6 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 });
-
-client.__h4cSlashHandlerBound = true;
 
 /* --------------------------- Database Connection --------------------------- */
 const connectDatabase = async () => {

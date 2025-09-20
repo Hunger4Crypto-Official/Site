@@ -159,7 +159,15 @@ export class CommunityEngagementService {
 
     const lastAt = community[fields.last] ? new Date(community[fields.last]) : null;
     if (lastAt && (now - lastAt) < cooldownMs) {
-      return { updated: false, reason: 'cooldown', user };
+      const nextAvailableAt = new Date(lastAt.getTime() + cooldownMs);
+      return {
+        updated: false,
+        reason: 'cooldown',
+        nextAvailableAt,
+        count: community[fields.count] || 0,
+        streak: community[fields.streak] || 0,
+        user
+      };
     }
 
     const newStreak = computeStreak(community[fields.streak] || 0, lastAt, now);
