@@ -1,5 +1,6 @@
 import type { ProcessedChartData, Section } from "@/lib/types";
 import dynamic from "next/dynamic";
+import DOMPurify from "isomorphic-dompurify";
 
 const Chart = dynamic(() => import("./Chart"), { ssr: false });
 
@@ -39,12 +40,15 @@ export default function Article({ title, description, coverImage, sections, char
       </header>
 
       <article className="prose prose-invert max-w-none">
-        {safeSections.map((s, i) => (
-          <section id={`s-${i}`} key={i} className="mb-8">
-            {s.heading && <h2>{s.heading}</h2>}
-            <div dangerouslySetInnerHTML={{ __html: s.body ?? "" }} />
-          </section>
-        ))}
+        {safeSections.map((s, i) => {
+          const sanitizedBody = DOMPurify.sanitize(s.body ?? "");
+          return (
+            <section id={`s-${i}`} key={i} className="mb-8">
+              {s.heading && <h2>{s.heading}</h2>}
+              <div dangerouslySetInnerHTML={{ __html: sanitizedBody }} />
+            </section>
+          );
+        })}
 
         {safeCharts.length > 0 && (
           <section className="mt-12">

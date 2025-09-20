@@ -13,10 +13,11 @@ export default function Search({ articles }: SearchProps) {
   const filtered = useMemo(() => {
     if (!query.trim()) return articles;
     const q = query.toLowerCase();
-    return articles.filter(a =>
-      a.title.toLowerCase().includes(q) ||
-      a.description?.toLowerCase().includes(q)
-    );
+    return articles.filter((a) => {
+      const title = a.title.toLowerCase();
+      const description = (a.description ?? "").toLowerCase();
+      return title.includes(q) || description.includes(q);
+    });
   }, [articles, query]);
 
   return (
@@ -38,7 +39,7 @@ export default function Search({ articles }: SearchProps) {
       {query && (
         <div className="mt-4">
           <p className="text-sm text-slate-400 mb-3">
-            {filtered.length} result{filtered.length !== 1 ? "s" : ""} for "{query}"
+            {filtered.length} result{filtered.length !== 1 ? "s" : ""} for “{query}”
           </p>
           <div className="space-y-3">
             {filtered.map(a => (

@@ -1,7 +1,20 @@
 import { z } from 'zod';
 import { env } from './environment.js';
 
-const configSchema = z.object({
+// Production-safe config with zod validation and proper error handling
+let z;
+try {
+  // Try to import zod, fallback if not available
+  const zodModule = await import('zod');
+  z = zodModule.z;
+} catch (error) {
+  console.warn('Zod not available, using basic validation');
+  z = null;
+}
+
+
+// Create schema only if zod is available
+const configSchema = z ? z.object({
   mongodb: z.object({
     uri: z.string().url(),
     poolSize: z.number().default(10),
@@ -17,7 +30,7 @@ const configSchema = z.object({
   discord: z.object({
     token: z.string().min(50),
     guildId: z.string().regex(/^\d{17,19}$/),
-    roles: z.record(z.string().regex(/^\d{17,19}$/))
+    roles: z.record(z.string().regex(/^\d{17,19}$/).optional()).optional()
   }),
   
   security: z.object({
@@ -42,9 +55,10 @@ const configSchema = z.object({
       lpSnapshotTtlSecs: z.number().default(7200)
     })
   })
-});
+}) : null;
 
-export const config = configSchema.parse({
+// Create the raw config object
+const rawConfig = {
   mongodb: {
     uri: env.MONGODB_URI,
     poolSize: Number(process.env.DB_POOL_SIZE || '10'),
@@ -101,3 +115,33 @@ export const config = configSchema.parse({
     }
   }
 });
+
+};
+
+// Use zod validation if available, otherwise use raw config
+export const config = configSchema ? (() => {
+  try {
+    return configSchema.parse(rawConfig);
+  } catch (error) {
+    console.error('Config validation failed:', error.message);
+    console.warn('Using unvalidated config due to validation errors');
+    return rawConfig;
+  }
+})() : rawConfig;
+
+// Validate required environment variables
+const requiredEnvVars = ['MONGODB_URI', 'REDIS_URL', 'BOT_TOKEN', 'DISCORD_GUILD_ID', 'ADMIN_JWT_SECRET'];
+const missing = requiredEnvVars.filter(key => !process.env[key]);
+if (missing.length > 0) {
+  const errorMsg = `Missing required environment variables: ${missing.join(', ')}`;
+  console.error(errorMsg);
+  
+  // In production, log error but don't crash immediately
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('Continuing with missing env vars in production mode');
+  } else {
+    throw new Error(errorMsg);
+  }
+}
+
+

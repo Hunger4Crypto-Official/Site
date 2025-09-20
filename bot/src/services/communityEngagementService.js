@@ -168,6 +168,9 @@ export class CommunityEngagementService {
         streak: community[fields.streak] || 0,
         user
       };
+
+      return { updated: false, reason: 'cooldown', user };
+
     }
 
     const newStreak = computeStreak(community[fields.streak] || 0, lastAt, now);
