@@ -39,6 +39,9 @@
     "@types/jest": "^29.5.12",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.16",
+ codex/suggest-improvements-for-web-portion-5xum2w
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
 codex/suggest-improvements-for-web-portion-hqrpi8
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0"
@@ -51,7 +54,6 @@ codex/suggest-improvements-for-web-portion-hqrpi8
     "@testing-library/react": "^16.0.1",
     "jsdom": "^24.1.0",
     "vitest": "^2.1.4"
- main
  main
   },
   "engines": {

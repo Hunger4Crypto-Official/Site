@@ -13,10 +13,11 @@ export default function Search({ articles }: SearchProps) {
   const filtered = useMemo(() => {
     if (!query.trim()) return articles;
     const q = query.toLowerCase();
-    return articles.filter(a =>
-      a.title.toLowerCase().includes(q) ||
-      a.description?.toLowerCase().includes(q)
-    );
+    return articles.filter((a) => {
+      const title = a.title.toLowerCase();
+      const description = (a.description ?? "").toLowerCase();
+      return title.includes(q) || description.includes(q);
+    });
   }, [articles, query]);
 
   return (

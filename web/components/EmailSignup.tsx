@@ -9,6 +9,8 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+ codex/suggest-improvements-for-web-portion-5xum2w
+  const isMountedRef = useRef(true);
  codex/suggest-improvements-for-web-portion-hqrpi8
  codex/suggest-improvements-for-web-portion
  main
@@ -21,16 +23,38 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
     }
   };
 
+ codex/suggest-improvements-for-web-portion-5xum2w
+  const runIfMounted = (fn: () => void) => {
+    if (isMountedRef.current) {
+      fn();
+    }
+  };
+
+  const scheduleReset = () => {
+    clearResetTimer();
+    resetTimerRef.current = setTimeout(() => {
+      runIfMounted(() => {
+        setStatus("idle");
+        setMessage("");
+        resetTimerRef.current = null;
+      });
+
   const scheduleReset = () => {
     clearResetTimer();
     resetTimerRef.current = setTimeout(() => {
       setStatus("idle");
       setMessage("");
       resetTimerRef.current = null;
+main
     }, 5000);
   };
 
   useEffect(() => {
+ codex/suggest-improvements-for-web-portion-5xum2w
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      clearResetTimer();
     return () => {
       clearResetTimer();
  codex/suggest-improvements-for-web-portion-hqrpi8
@@ -47,12 +71,15 @@ export default function EmailSignup({ className = "" }: EmailSignupProps) {
     return () => {
       clearStatusTimeout();
  main
- main
     };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+ codex/suggest-improvements-for-web-portion-5xum2w
+    clearResetTimer();
+
+
  codex/suggest-improvements-for-web-portion-hqrpi8
     clearResetTimer();
 
@@ -60,8 +87,6 @@ codex/suggest-improvements-for-web-portion
     clearResetTimer();
 
     clearStatusTimeout();
- main
-
  main
     if (!email.trim()) {
       setStatus("error");
@@ -88,21 +113,43 @@ codex/suggest-improvements-for-web-portion
         body: JSON.stringify({ email: email.toLowerCase().trim() }),
       });
 
-      const data = await response.json();
+      let data: unknown = null;
+      try {
+        data = await response.json();
+      } catch {
+        // Ignore JSON parsing errors and fall back to generic message
+      }
+
+      if (!isMountedRef.current) {
+        return;
+      }
 
       if (response.ok) {
-        setStatus("success");
-        setMessage("🎉 Thanks for subscribing! Check your email for confirmation.");
-        setEmail("");
+        runIfMounted(() => {
+          setStatus("success");
+          setMessage("🎉 Thanks for subscribing! Check your email for confirmation.");
+          setEmail("");
+        });
       } else {
-        setStatus("error");
-        setMessage(data.error || "Failed to subscribe. Please try again.");
+        const errorMessage = typeof data === "object" && data !== null && "error" in data
+          ? String((data as { error?: unknown }).error ?? "")
+          : "";
+        runIfMounted(() => {
+          setStatus("error");
+          setMessage(errorMessage || "Failed to subscribe. Please try again.");
+        });
       }
     } catch (error) {
-      setStatus("error");
-      setMessage("Network error. Please try again.");
+      runIfMounted(() => {
+        setStatus("error");
+        setMessage("Network error. Please try again.");
+      });
     }
 
+codex/suggest-improvements-for-web-portion-5xum2w
+    if (isMountedRef.current) {
+      scheduleReset();
+    }
  codex/suggest-improvements-for-web-portion-hqrpi8
     scheduleReset();
 
@@ -115,7 +162,6 @@ codex/suggest-improvements-for-web-portion
       timeoutRef.current = null;
     }, 5000);
  main
-main
   };
 
   return (

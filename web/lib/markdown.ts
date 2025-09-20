@@ -11,10 +11,15 @@ export async function mdToHtml(md: string): Promise<string> {
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeStringify, { allowDangerousHtml: true })
     .process(md);
+ codex/suggest-improvements-for-web-portion-5xum2w
+  const html = String(file);
+  return DOMPurify.sanitize(html);
+
  codex/suggest-improvements-for-web-portion
   const html = String(file);
   return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
   const rendered = String(file);
   return DOMPurify.sanitize(rendered);
+ main
  main
 }
