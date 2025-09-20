@@ -3,8 +3,35 @@ import path from "path";
 import type { Article, Section } from "./types";
 import { mdToHtml } from "./markdown";
 
-// Content lives in content/mega_article/*.json
-const CONTENT_DIR = path.join(process.cwd(), "..", "content", "mega_article");
+const FALLBACK_SLUGS = ["foreword", "bitcoin", "ethereum", "algorand"];
+
+function resolveContentDirectory(): string {
+  const configuredDir = process.env.MEGA_ARTICLE_CONTENT_DIR ?? process.env.CONTENT_ROOT;
+
+  const candidates = [
+    configuredDir ? path.resolve(configuredDir) : null,
+    path.resolve(process.cwd(), "content", "mega_article"),
+    path.resolve(process.cwd(), "..", "content", "mega_article"),
+    path.resolve(process.cwd(), "web", "content", "mega_article"),
+  ].filter((dir): dir is string => !!dir);
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    } catch (error) {
+      console.warn(`Error checking content directory ${candidate}:`, error);
+    }
+  }
+
+  const fallback = candidates[0] ?? path.resolve(process.cwd(), "..", "content", "mega_article");
+  console.warn(`Content directory not found. Falling back to ${fallback}`);
+  return fallback;
+}
+
+// Content lives in content/mega_article/*.json, but allow overrides for hosted builds
+const CONTENT_DIR = resolveContentDirectory();
 
 // FIXED: Build-safe directory listing
 function safeList(dir: string): string[] {
@@ -67,9 +94,9 @@ export function resolveArticleSlug(slug: string): string | null {
 export function getAllArticleSlugs(): string[] {
   const files = listArticleFiles();
   if (files.length === 0) {
-    console.warn('No article files found, returning fallback slugs');
+    console.warn("No article files found, returning fallback slugs");
     // Return some fallback slugs to prevent build failure
-    return ['foreword', 'bitcoin', 'ethereum', 'algorand'];
+    return [...FALLBACK_SLUGS];
   }
   return files.map((f) => f.replace(/\.json$/, ""));
 }
