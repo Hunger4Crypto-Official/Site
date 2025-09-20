@@ -11,13 +11,13 @@ services:
       pwd &&
       ls -la &&
       echo "=== Installing root dependencies ===" &&
-      npm ci --no-optional --silent &&
+      npm ci --no-optional --silent --legacy-peer-deps &&
       echo "=== Installing web dependencies ===" &&
       cd web &&
       pwd &&
       ls -la &&
       echo "Installing web deps..." &&
-      npm ci --no-optional --silent &&
+      npm ci --no-optional --silent --legacy-peer-deps &&
       echo "=== Installing TypeScript if missing ===" &&
       npm install --save-dev typescript @types/react @types/react-dom @types/node ||
       echo "TypeScript already installed or install failed" &&
@@ -53,12 +53,18 @@ services:
       node --version &&
       npm --version &&
       echo "=== Installing root dependencies ===" &&
-      npm ci --no-optional --silent &&
+      npm ci --no-optional --silent --legacy-peer-deps &&
+      echo "=== Installing shared dependencies ===" &&
+      cd shared &&
+      npm ci --no-optional --silent --legacy-peer-deps || echo "Shared install skipped" &&
+      cd .. &&
       echo "=== Installing bot dependencies ===" &&
       cd bot &&
-      npm ci --no-optional --silent &&
+      npm ci --no-optional --silent --legacy-peer-deps &&
       echo "=== Checking bot files ===" &&
       ls -la src/ &&
+      ls -la src/bot\ responses/ || echo "Bot responses dir not found, creating..." &&
+      mkdir -p src/bot\ responses/ &&
       echo "=== Bot Build Complete ==="
     startCommand: cd bot && npm start
     envVars:

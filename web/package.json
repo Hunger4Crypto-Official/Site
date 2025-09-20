@@ -9,6 +9,10 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "npm run lint && npm run type-check",
+    "test": "npm run lint && npm run type-check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:jest": "jest",
     "analyze": "ANALYZE=true npm run build",
     "security-check": "npm audit --audit-level=high"
   },
@@ -32,9 +36,16 @@
     "isomorphic-dompurify": "^2.16.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "14.2.16",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@types/jest": "^29.5.12",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.16",
-    "@next/bundle-analyzer": "14.2.16"
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "jsdom": "^24.1.0",
+    "vitest": "^2.1.4"
   },
   "engines": {
     "node": ">=18.18.0",

@@ -493,6 +493,8 @@ client.once('ready', async () => {
     ping: client.ws.ping
   }, 'Discord bot ready 🚀');
 
+  CommunityEngagementService.initialize(client);
+  RandomChatterService.initialize(client);
   commandRegistry = new CommandRegistry(client);
 
   // Load slash commands
@@ -512,7 +514,7 @@ client.once('ready', async () => {
   }
   
   // Initialize role management service
-  if (RoleManagementService) {
+  if (RoleManagementService?.initialize) {
     try {
       await RoleManagementService.initialize();
       logger.info('Role management service initialized');
@@ -522,7 +524,7 @@ client.once('ready', async () => {
   }
 
   // Initialize leaderboard service
-  if (AlgorandLeaderboardService) {
+  if (AlgorandLeaderboardService?.initialize) {
     try {
       await AlgorandLeaderboardService.initialize();
       logger.info('Algorand leaderboard service initialized');
@@ -568,16 +570,33 @@ client.on('guildMemberAdd', async (member) => {
 });
 
 // ----------- Core community + personality handler -----------
+    logger.error({ error: String(error), member: member.id }, 'Failed to ensure user on join');
+  }
+
+  const channelId = Settings.welcomeChannelId;
+  if (!channelId) return;
+
+  const channel = await CommunityEngagementService.resolveChannel(channelId);
+  if (!channel) return;
+
+  try {
+    await channel.send(PersonalityService.welcomeMessage(member));
+  } catch (error) {
+    logger.error({ error: String(error), member: member.id }, 'Failed to send welcome message');
+  }
+});
+
+// ----------- GM auto-reply handler -----------
 client.on('messageCreate', async (message) => {
   if (
     message.author.bot ||
     !message.guild ||
-    message.channel.type !== 0 // Only reply in text channels
+    message.channel?.type !== 0
   ) return;
 
   const content = message.content?.trim();
   if (!content) return;
-
+  
   const lowerContent = content.toLowerCase();
   const addressedToBot = client.user ? message.mentions.users.has(client.user.id) : false;
 
@@ -684,6 +703,53 @@ client.on('messageCreate', async (message) => {
     const pool = [...cryptoJokes, ...techFacts];
     const response = randomFrom(pool) || 'Fine. Insert wry crypto wisdom here.';
     await message.reply(PersonalityService.wrap(response, { user: message.author }));
+  const userRecord = await CommunityEngagementService.recordMessage(message);
+  if (userRecord?.shadowbanned) return;
+
+  if (commandRegistry && content.startsWith(Settings.prefix || '!')) {
+    const handled = await commandRegistry.handle(message, userRecord);
+    if (handled) return;
+  }
+
+  const normalized = content.toLowerCase();
+
+  if (/^gm\b/.test(normalized)) {
+    const result = await CommunityEngagementService.handleGreeting(message, 'gm', userRecord);
+    if (result.updated) {
+      await message.reply(PersonalityService.wrap(randomFrom(gmResponses), { user: message.author }));
+      if (result.achievements?.length) {
+        const unlocked = result.achievements.map(a => `**${a.label}**`).join(', ');
+        await message.reply(PersonalityService.wrap(`Achievement unlocked: ${unlocked}`, { user: message.author, noSuffix: true }));
+      }
+    }
+    return;
+  }
+
+  if (/^gn\b/.test(normalized)) {
+    const result = await CommunityEngagementService.handleGreeting(message, 'gn', userRecord);
+    if (result.updated) {
+      await message.reply(PersonalityService.wrap(randomFrom(GN_RESPONSES), { user: message.author }));
+      if (result.achievements?.length) {
+        const unlocked = result.achievements.map(a => `**${a.label}**`).join(', ');
+        await message.reply(PersonalityService.wrap(`Night shift unlocked: ${unlocked}`, { user: message.author, noSuffix: true }));
+      }
+    }
+    return;
+  }
+
+  if (/(who\s+(owns|made|built)|owner|what\s+is\s+your\s+name|who\s+do\s+you\s+belong)/i.test(normalized)) {
+    await message.reply(PersonalityService.ownerInfoReply(content));
+    return;
+  }
+
+  if (/(tell me a joke|make me laugh)/i.test(normalized)) {
+    await message.reply(PersonalityService.wrap(randomFrom(cryptoJokes), { user: message.author }));
+    return;
+  }
+
+  if (/(drop a fact|teach me|random fact)/i.test(normalized)) {
+    await message.reply(PersonalityService.wrap(randomFrom(techFacts), { user: message.author }));
+    return;
   }
 });
 
