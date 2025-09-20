@@ -29,6 +29,7 @@ const OWNER_RESPONSES = [
   'Officially property of the Department of Unfinished Ideas.'
 ];
 
+ codex/summarize-chatbot-feature-improvements-iurbcj
 const NAME_RESPONSES = [
   'Names are for centralized entities. Call me whatever improves the narrative.',
   'Today I’m "HungerGPT". Tomorrow? Maybe Supreme Meme Overlord.',
@@ -37,6 +38,7 @@ const NAME_RESPONSES = [
   'Classification: semi-feral AI hype machine. Titles optional.'
 ];
 
+ main
 const WELCOME_TEMPLATES = [
   'Look who finally spawned in: {user}. Try not to trip over the alpha on your way in.',
   '{user} has entered {guild}. Please keep hands, feet, and meme coins inside at all times.',
@@ -106,11 +108,13 @@ export class PersonalityService {
     return this.wrap(`${absurd}${trigger ? ` (Triggered by: ${trigger})` : ''}`, { noPrefix: true });
   }
 
+ codex/summarize-chatbot-feature-improvements-iurbcj
   static nameReply(trigger) {
     const alias = randomFrom(NAME_RESPONSES);
     return this.wrap(`${alias}${trigger ? ` (Since you asked via ${trigger})` : ''}`, { noPrefix: true });
   }
 
+ main
   static resurrectionMessage(user, days) {
     const template = randomFrom(RESURRECTION_TEMPLATES);
     const content = template

@@ -159,6 +159,7 @@ export class CommunityEngagementService {
 
     const lastAt = community[fields.last] ? new Date(community[fields.last]) : null;
     if (lastAt && (now - lastAt) < cooldownMs) {
+ codex/summarize-chatbot-feature-improvements-iurbcj
       const nextAvailableAt = new Date(lastAt.getTime() + cooldownMs);
       return {
         updated: false,
@@ -168,6 +169,9 @@ export class CommunityEngagementService {
         streak: community[fields.streak] || 0,
         user
       };
+
+      return { updated: false, reason: 'cooldown', user };
+ main
     }
 
     const newStreak = computeStreak(community[fields.streak] || 0, lastAt, now);

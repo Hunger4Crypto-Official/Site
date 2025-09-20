@@ -2,11 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+ codex/summarize-chatbot-feature-improvements-iurbcj
 const responsesDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../bot responses/');
 
 function loadJson(file, key) {
   const filePath = path.join(responsesDir, file);
   const payload = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+
+function loadJson(file, key) {
+  const payload = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../bot responses/', file), 'utf-8'));
+ main
   if (key && payload[key]) return payload[key];
   if (key && payload[key.toLowerCase()]) return payload[key.toLowerCase()];
   const firstKey = Object.keys(payload)[0];
