@@ -205,7 +205,13 @@ codex/suggest-improvements-for-web-portion-5xum2w
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        action="/api/email/subscribe"
+        method="post"
+        noValidate
+      >
         <div>
           <input
             type="email"
@@ -213,6 +219,9 @@ codex/suggest-improvements-for-web-portion-5xum2w
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
             disabled={status === "loading"}
+            required
+            inputMode="email"
+            pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
             className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
           />
         </div>
@@ -225,15 +234,24 @@ codex/suggest-improvements-for-web-portion-5xum2w
           {status === "loading" ? "Subscribing..." : "Subscribe for Updates"}
         </button>
 
-        {message && (
-          <div className={`text-sm text-center ${
-            status === "success" ? "text-green-400" : 
-            status === "error" ? "text-red-400" : 
-            "text-slate-400"
-          }`}>
-            {message}
-          </div>
-        )}
+        <div
+          className={`text-sm text-center ${
+            status === "success"
+              ? "text-green-400"
+              : status === "error"
+              ? "text-red-400"
+              : "text-slate-400"
+          }`}
+          aria-live="polite"
+        >
+          {message}
+        </div>
+
+        <noscript>
+          <p className="text-xs text-slate-400 text-center">
+            JavaScript is disabled, but the form will still submit using your browser settings.
+          </p>
+        </noscript>
       </form>
 
       <div className="mt-4 text-xs text-slate-500 text-center">

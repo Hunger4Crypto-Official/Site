@@ -58,7 +58,7 @@
     "lint:bot": "cd bot && npm run lint",
     "lint:web": "cd web && npm run lint",
     "lint:fix": "npm run lint:shared -- --fix && npm run lint:bot -- --fix && npm run lint:web -- --fix",
-    
+
     "type-check": "npm run type-check:web && npm run type-check:bot",
     "type-check:web": "npm --prefix web run type-check",
     "type-check:bot": "echo \"Bot is JavaScript - no type checking needed\"",

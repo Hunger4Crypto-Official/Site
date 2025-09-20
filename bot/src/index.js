@@ -596,7 +596,7 @@ client.on('messageCreate', async (message) => {
 
   const content = message.content?.trim();
   if (!content) return;
-  
+
   const lowerContent = content.toLowerCase();
   const addressedToBot = client.user ? message.mentions.users.has(client.user.id) : false;
 
@@ -703,6 +703,7 @@ client.on('messageCreate', async (message) => {
     const pool = [...cryptoJokes, ...techFacts];
     const response = randomFrom(pool) || 'Fine. Insert wry crypto wisdom here.';
     await message.reply(PersonalityService.wrap(response, { user: message.author }));
+
   const userRecord = await CommunityEngagementService.recordMessage(message);
   if (userRecord?.shadowbanned) return;
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { env } from './environment.js';
+
 // Production-safe config with zod validation and proper error handling
 let z;
 try {
@@ -10,6 +11,7 @@ try {
   console.warn('Zod not available, using basic validation');
   z = null;
 }
+
 
 // Create schema only if zod is available
 const configSchema = z ? z.object({
@@ -113,6 +115,7 @@ const rawConfig = {
     }
   }
 });
+
 };
 
 // Use zod validation if available, otherwise use raw config
@@ -140,4 +143,5 @@ if (missing.length > 0) {
     throw new Error(errorMsg);
   }
 }
+
 

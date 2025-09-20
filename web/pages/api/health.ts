@@ -19,7 +19,9 @@ export default function handler(
   res: NextApiResponse<HealthData>
 ) {
   const memoryUsage = process.memoryUsage();
-  
+
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+
   res.status(200).json({
     ok: true,
     timestamp: new Date().toISOString(),

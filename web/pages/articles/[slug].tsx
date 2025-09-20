@@ -19,16 +19,32 @@ export default function ArticlePage({ article }: Props) {
 
 export const getStaticPaths: GetStaticPaths = async () => {
   console.log('Starting getStaticPaths for articles...');
-  
+
   try {
     const articles = await getAllArticles();
-    const paths = articles.map((a) => ({ params: { slug: a.slug } }));
-    
-    console.log(`Generated ${paths.length} static paths for articles`);
-    
+    const featuredSlugs = new Set([
+      'foreword',
+      'bitcoin',
+      'ethereum',
+      'algorand',
+    ]);
+
+    const shouldLimit = articles.length > 12;
+    const basePaths = shouldLimit
+      ? articles
+          .filter((article) => featuredSlugs.has(article.slug))
+          .map((article) => ({ params: { slug: article.slug } }))
+      : articles.map((article) => ({ params: { slug: article.slug } }));
+
+    const dedupedPaths = Array.from(
+      new Map(basePaths.map((entry) => [entry.params.slug, entry])).values()
+    );
+
+    console.log(`Generated ${dedupedPaths.length} static paths for articles`);
+
     // Use blocking fallback to handle missing articles gracefully
     return {
-      paths,
+      paths: dedupedPaths,
       fallback: 'blocking'
     };
   } catch (error) {

@@ -17,6 +17,64 @@ a {
   color: #7dd3fc;
 }
 
+.skeleton {
+  background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+  background-size: 200px 100%;
+  animation: skeleton 1.5s infinite;
+}
+
+.chart-loading {
+  height: 20rem;
+  background-color: #1f2937;
+  border-radius: 0.75rem;
+  animation: skeleton 1.5s infinite;
+}
+
+.article-loading {
+  display: block;
+  width: 100%;
+  padding: 1rem 0;
+}
+
+.article-loading::before,
+.article-loading::after {
+  content: "";
+  display: block;
+  border-radius: 0.75rem;
+  background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+  background-size: 200px 100%;
+  animation: skeleton 1.5s infinite;
+}
+
+.article-loading::before {
+  height: 2rem;
+  width: 60%;
+  margin-bottom: 0.75rem;
+}
+
+.article-loading::after {
+  height: 1rem;
+  width: 80%;
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.focus-ring:focus {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 .prose h1,
 .prose h2,
 .prose h3 {
@@ -30,3 +88,13 @@ a {
 main {
   min-height: 100vh;
 }
+
+@keyframes skeleton {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+

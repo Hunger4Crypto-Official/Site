@@ -27,13 +27,16 @@ export function generateMetadata(page: {
   image?: string;
   noIndex?: boolean;
 }) {
-  const title = page.title 
+  const title = page.title
     ? `${page.title} | ${siteConfig.name}`
     : siteConfig.title;
-    
+
   const description = page.description || siteConfig.description;
   const image = page.image || siteConfig.ogImage;
   const url = siteConfig.url;
+  const robots = page.noIndex
+    ? "noindex, nofollow"
+    : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 
   return {
     title,
@@ -42,7 +45,7 @@ export function generateMetadata(page: {
     authors: [{ name: siteConfig.creator }],
     creator: siteConfig.creator,
     openGraph: {
-      type: "website",
+      type: page.title ? "article" : "website",
       title,
       description,
       url,
@@ -63,9 +66,15 @@ export function generateMetadata(page: {
       images: [`${url}${image}`],
       creator: siteConfig.creator,
     },
-    robots: page.noIndex ? "noindex, nofollow" : "index, follow",
+    robots,
     alternates: {
       canonical: url,
+    },
+    other: {
+      "article:author": "$MemO Collective",
+      "article:section": "Cryptocurrency Education",
+      "og:type": page.title ? "article" : "website",
+      "twitter:card": "summary_large_image",
     },
   };
 }

@@ -15,10 +15,12 @@ function wrapReply(interaction, response, context = {}) {
   }
   return interaction.reply({ ...payload, ephemeral: context.ephemeral });
 }
+
 import { createWrapReply } from './wrapReply.js';
 import { logger } from '../utils/logger.js';
 
 const wrapReply = createWrapReply((response, ctx) => PersonalityService.wrap(response, ctx));
+
 
 function buildDefinitions(client) {
   return [
@@ -205,6 +207,10 @@ export async function loadSlashCommands(client) {
     client.slashCommands.clear();
   }
 
+  for (const def of definitions) {
+    client.slashCommands.set(def.name, def);
+  }
+
   if (!client.slashCommands || typeof client.slashCommands.set !== 'function') {
     client.slashCommands = new Map();
   } else if (typeof client.slashCommands.clear === 'function') {
@@ -237,6 +243,22 @@ export async function loadSlashCommands(client) {
       try {
         await command.execute(interaction);
         const duration = Date.now() - startTime;
+
+        logger.info({
+          command: interaction.commandName,
+          user: interaction.user.tag,
+          guild: interaction.guild?.name,
+          duration
+        }, 'Slash command executed successfully (fallback handler)');
+      } catch (error) {
+        const duration = Date.now() - startTime;
+
+        logger.error({
+          error,
+          command: interaction.commandName,
+          user: interaction.user.tag,
+          duration
+        }, 'Slash command execution failed (fallback handler)');
 
         logger.info({
           command: interaction.commandName,

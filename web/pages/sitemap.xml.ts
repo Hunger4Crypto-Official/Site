@@ -2,6 +2,12 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getAllArticleSlugs } from "../lib/content";
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://hunger4crypto.com";
+const FEATURED_SLUGS = new Set([
+  "foreword",
+  "bitcoin",
+  "ethereum",
+  "algorand",
+]);
 
 export default async function handler(_req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -41,10 +47,13 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
       ...slugs.map((slug) => {
         // FIXED: Escape XML entities in URLs
         const escapedSlug = slug.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const isFeatured = FEATURED_SLUGS.has(slug);
+        const priority = isFeatured ? '0.9' : '0.7';
+        const changefreq = isFeatured ? 'weekly' : 'monthly';
         return `<url>
           <loc>${BASE}/articles/${escapedSlug}</loc>
-          <changefreq>monthly</changefreq>
-          <priority>0.6</priority>
+          <changefreq>${changefreq}</changefreq>
+          <priority>${priority}</priority>
           <lastmod>${new Date().toISOString()}</lastmod>
         </url>`;
       })

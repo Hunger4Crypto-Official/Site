@@ -1,8 +1,11 @@
+const { IgnorePlugin } = require('webpack');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  
+  compress: true,
+
   // TypeScript and ESLint configuration
   typescript: {
     ignoreBuildErrors: false,
@@ -12,7 +15,7 @@ const nextConfig = {
   },
   
   // Webpack configuration for Node.js modules
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -26,7 +29,20 @@ const nextConfig = {
         querystring: false,
       };
     }
-    
+
+    if (!dev) {
+      config.plugins = config.plugins || [];
+      config.plugins.push(
+        new IgnorePlugin({
+          resourceRegExp: /^\.\/locale$/,
+          contextRegExp: /moment$/,
+        })
+      );
+    }
+
+    config.optimization = config.optimization || {};
+    config.optimization.usedExports = true;
+
     // Ignore node_modules warnings
     config.ignoreWarnings = [
       { module: /node_modules/ },
@@ -35,20 +51,26 @@ const nextConfig = {
     
     return config;
   },
-  
+
   // Output configuration
   output: 'standalone',
-  
+
   // Performance optimizations
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {
       exclude: ['error', 'warn']
     } : false,
   },
-  
+
   // Experimental features
   experimental: {
-    optimizePackageImports: ['recharts'],
+    optimizePackageImports: ['recharts', 'isomorphic-dompurify'],
+  },
+
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1440],
+    imageSizes: [16, 32, 48, 64, 96, 128],
   },
 };
 

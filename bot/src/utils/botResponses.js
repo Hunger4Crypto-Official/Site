@@ -13,6 +13,17 @@ function loadJson(file, key) {
   return firstKey ? payload[firstKey] : [];
 }
 
+const responsesDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../bot responses/');
+
+function loadJson(file, key) {
+  const filePath = path.join(responsesDir, file);
+  const payload = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+  if (key && payload[key]) return payload[key];
+  if (key && payload[key.toLowerCase()]) return payload[key.toLowerCase()];
+  const firstKey = Object.keys(payload)[0];
+  return firstKey ? payload[firstKey] : [];
+}
+
 }
 
 // Fix for ES modules - get current directory
@@ -56,6 +67,8 @@ export const techFacts = loadJson('techCryptoFacts.json', 'TechCryptoFacts');
 export const memeVault = loadJson('memes.json', 'Memes');
 export function randomFrom(arr) {
   if (!Array.isArray(arr) || arr.length === 0) return undefined;
+export function randomFrom(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return undefined;
 
 export function randomFrom(arr) {
   if (!Array.isArray(arr) || arr.length === 0) return undefined;
@@ -70,5 +83,6 @@ export function randomFrom(arr) {
     console.warn('randomFrom called with empty or invalid array');
     return 'Default response';
   }
+  
   return arr[Math.floor(Math.random() * arr.length)];
 }

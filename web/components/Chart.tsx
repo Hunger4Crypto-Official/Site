@@ -224,6 +224,14 @@ export default function Chart(props: ChartProps) {
   const theme = useChartTheme(props.colors);
   const yKey = props.yKey || pickDefaultY(data, props.xKey);
 
+  if (!data.length) {
+    return (
+      <BaseChart title={props.title} subtitle={props.subtitle}>
+        <div className="chart-loading" aria-hidden="true" />
+      </BaseChart>
+    );
+  }
+
   return (
     <BaseChart title={props.title} subtitle={props.subtitle}>
       {renderChartByType(props.type, props, theme, yKey, data)}
