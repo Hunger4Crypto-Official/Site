@@ -1,102 +1,103 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+import type { GetServerSideProps } from "next";
 import { getAllArticleSlugs } from "../lib/content";
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://hunger4crypto.com";
-const FEATURED_SLUGS = new Set([
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://hunger4crypto.com";
+const FEATURED_SLUGS = new Set(["foreword", "bitcoin", "ethereum", "algorand"]);
+const FALLBACK_SLUGS = [
   "foreword",
   "bitcoin",
   "ethereum",
   "algorand",
-]);
+  "cardano",
+  "polkadot",
+  "solana",
+  "avalanche",
+  "cosmos",
+  "vechain",
+  "base",
+  "nfts",
+  "rwa",
+  "future-trends",
+];
 
-export default async function handler(_req: NextApiRequest, res: NextApiResponse) {
-  try {
-    console.log('Generating sitemap...');
-    
-    // FIXED: Use the robust slug getter that includes fallbacks
-    let slugs: string[] = [];
-    
-    try {
-      slugs = getAllArticleSlugs();
-      console.log(`Found ${slugs.length} article slugs for sitemap`);
-    } catch (error) {
-      console.warn('Failed to get article slugs, using fallback:', error);
-      // Fallback slugs to prevent sitemap failure
-      slugs = ['foreword', 'bitcoin', 'ethereum', 'algorand', 'cardano', 'polkadot', 'solana', 'avalanche', 'cosmos', 'vechain', 'base', 'nfts', 'rwa', 'future-trends'];
-    }
+const xmlEscape = (value: string) =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    // FIXED: Build URLs with proper escaping and error handling
-    const urls = [
-      // Homepage - highest priority
-      `<url>
-        <loc>${BASE}/</loc>
-        <changefreq>daily</changefreq>
-        <priority>1.0</priority>
-        <lastmod>${new Date().toISOString()}</lastmod>
-      </url>`,
-      
-      // Articles index page
-      `<url>
-        <loc>${BASE}/articles</loc>
-        <changefreq>weekly</changefreq>
-        <priority>0.8</priority>
-        <lastmod>${new Date().toISOString()}</lastmod>
-      </url>`,
-      
-      // Individual articles
-      ...slugs.map((slug) => {
-        // FIXED: Escape XML entities in URLs
-        const escapedSlug = slug.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const isFeatured = FEATURED_SLUGS.has(slug);
-        const priority = isFeatured ? '0.9' : '0.7';
-        const changefreq = isFeatured ? 'weekly' : 'monthly';
-        return `<url>
-          <loc>${BASE}/articles/${escapedSlug}</loc>
-          <changefreq>${changefreq}</changefreq>
-          <priority>${priority}</priority>
-          <lastmod>${new Date().toISOString()}</lastmod>
-        </url>`;
-      })
-    ].join('\n');
+const buildUrlEntry = (slug: string) => {
+  const escapedSlug = xmlEscape(slug);
+  const isFeatured = FEATURED_SLUGS.has(slug);
+  const priority = isFeatured ? "0.9" : "0.7";
+  const changefreq = isFeatured ? "weekly" : "monthly";
+  const lastmod = new Date().toISOString();
 
-    // FIXED: Complete, valid XML sitemap
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  return `<url>
+    <loc>${BASE_URL}/articles/${escapedSlug}</loc>
+    <changefreq>${changefreq}</changefreq>
+    <priority>${priority}</priority>
+    <lastmod>${lastmod}</lastmod>
+  </url>`;
+};
+
+const buildSitemap = (slugs: string[]) => {
+  const lastmod = new Date().toISOString();
+  const urls = [
+    `<url>
+      <loc>${BASE_URL}/</loc>
+      <changefreq>daily</changefreq>
+      <priority>1.0</priority>
+      <lastmod>${lastmod}</lastmod>
+    </url>`,
+    `<url>
+      <loc>${BASE_URL}/articles</loc>
+      <changefreq>weekly</changefreq>
+      <priority>0.8</priority>
+      <lastmod>${lastmod}</lastmod>
+    </url>`,
+    ...slugs.map(buildUrlEntry),
+  ].join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
 ${urls}
 </urlset>`;
+};
 
-    console.log(`Generated sitemap with ${slugs.length + 2} URLs`);
+const buildFallbackSitemap = () => buildSitemap(FALLBACK_SLUGS);
 
-    // FIXED: Proper headers for XML sitemap
-    res.setHeader("Content-Type", "application/xml; charset=utf-8");
-    res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=43200"); // 24h cache, 12h stale
-    res.status(200).send(xml);
-    
+export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  let slugs: string[] = [];
+
+  try {
+    slugs = getAllArticleSlugs();
+    console.log(`Generated sitemap with ${slugs.length} article slugs`);
   } catch (error) {
-    console.error("Sitemap generation failed:", error);
-    
-    // FIXED: Return minimal fallback sitemap instead of error
-    const fallbackXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${BASE}/</loc>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-    <lastmod>${new Date().toISOString()}</lastmod>
-  </url>
-  <url>
-    <loc>${BASE}/articles</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-    <lastmod>${new Date().toISOString()}</lastmod>
-  </url>
-</urlset>`;
-
-    res.setHeader("Content-Type", "application/xml; charset=utf-8");
-    res.setHeader("Cache-Control", "public, s-maxage=3600"); // 1h cache for fallback
-    res.status(200).send(fallbackXml);
+    console.warn("Failed to build sitemap from content, using fallback slugs", error);
+    slugs = FALLBACK_SLUGS;
   }
+
+  try {
+    const xml = buildSitemap(slugs);
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=43200");
+    res.write(xml);
+  } catch (error) {
+    console.error("Sitemap generation failed, serving fallback sitemap", error);
+    const fallback = buildFallbackSitemap();
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, s-maxage=3600");
+    res.write(fallback);
+  }
+
+  res.end();
+
+  return {
+    props: {},
+  };
+};
+
+export default function Sitemap() {
+  return null;
 }

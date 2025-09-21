@@ -2,6 +2,7 @@ export type {
   Article,
   BaseArticle,
   ChartData,
+  ProcessedChartData,
   ChartSeries,
   ChartType,
   DashboardUser,

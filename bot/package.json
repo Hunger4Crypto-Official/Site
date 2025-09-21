@@ -13,6 +13,7 @@
     "test:watch": "node --test --watch test/*.test.js"
   },
   "dependencies": {
+    "@h4c/shared": "file:../shared",
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
