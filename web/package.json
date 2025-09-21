@@ -15,6 +15,7 @@
     "security-check": "npm audit --audit-level=high"
   },
   "dependencies": {
+    "@h4c/shared": "file:../shared",
     "next": "14.2.16",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

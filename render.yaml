@@ -51,6 +51,34 @@ services:
           property: host
       - key: ALGO_USD_FALLBACK
         value: "0.20"
+    autoDeploy: true
+
+  # === Discord Bot Worker ===
+  - type: worker
+    name: h4c-bot
+    env: node
+    plan: starter  # Free tier
+    buildCommand: ./scripts/render-worker-build.sh
+    startCommand: cd bot && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: ENABLE_HTTP
+        value: "false"
+      - key: PORT
+        value: "10000"
+
+      # === REQUIRED SECRETS (Set in Render UI) ===
+      - key: BOT_TOKEN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
       # Add if you have the bot API running elsewhere
       - key: BOT_API_URL
         value: ""  # Set this if you have a bot service

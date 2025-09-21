@@ -2,6 +2,64 @@
 # Render.com build script for H4C monorepo
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/render-common.sh"
+
+trap 'log "Render web build failed on line $LINENO"' ERR
+
+ensure_workspace_packages() {
+  local install_specs=()
+  local requested=("$@")
+
+  for pkg in "${requested[@]}"; do
+    if npm ls "$pkg" --depth=0 >/dev/null 2>&1; then
+      continue
+    fi
+
+    local version=""
+    if ! version=$(PKG_NAME="$pkg" node -e '
+const fs = require("fs");
+const path = require("path");
+const manifestPath = path.resolve("package.json");
+if (!fs.existsSync(manifestPath)) {
+  process.exit(1);
+}
+
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const sections = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
+
+for (const section of sections) {
+  const block = manifest[section];
+  if (block && block[process.env.PKG_NAME]) {
+    process.stdout.write(String(block[process.env.PKG_NAME]));
+    process.exit(0);
+  }
+}
+
+process.exit(1);
+' 2>/dev/null); then
+      version=""
+    fi
+
+    version=${version//$'\n'/}
+
+    if [ -n "$version" ]; then
+      install_specs+=("$pkg@$version")
+    else
+      install_specs+=("$pkg")
+    fi
+  done
+
+  if [ ${#install_specs[@]} -gt 0 ]; then
+    log "Installing missing workspace packages: ${install_specs[*]}"
+    npm install --no-save --no-package-lock --no-audit --no-fund "${install_specs[@]}"
+  else
+    log "Verified required packages are already installed: ${requested[*]}"
+  fi
+}
+
+setup_npm_env
+
 log() {
   echo "=== $* ==="
 }
@@ -100,6 +158,10 @@ JSON
 
 log "H4C Build Script Starting"
 log "Current directory: $(pwd)"
+log "Directory contents:"
+ls -la
+log "Node version: $(node --version)"
+log "npm version: $(npm --version)"
 log "Directory contents:" && ls -la
 
 if [ -d "content/mega_article" ] || [ -d "web/content/mega_article" ]; then
@@ -147,6 +209,15 @@ if [ ! -f "next-env.d.ts" ]; then
 NEXT
 fi
 
+previous_workspaces="${NPM_CONFIG_WORKSPACES-}"
+export NPM_CONFIG_WORKSPACES=false
+run_npm_install "." --include=dev
+if [ -n "${previous_workspaces:-}" ]; then
+  export NPM_CONFIG_WORKSPACES="$previous_workspaces"
+else
+  unset NPM_CONFIG_WORKSPACES
+fi
+ensure_workspace_packages typescript @types/react @types/react-dom @types/node
 run_npm_install "." --production=false
 npm ci --production=false
 
