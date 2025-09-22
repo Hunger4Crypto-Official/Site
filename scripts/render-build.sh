@@ -173,6 +173,12 @@ else
   create_sample_content
 fi
 
+log "Installing workspace dependencies from root lockfile"
+if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
+  run_npm_install "." --include=dev --workspace=@h4c/shared --workspace=@h4c/web
+else
+  log "No root lockfile detected, running best-effort install"
+  run_npm_install "." --include=dev
 log "Installing root dependencies"
 if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
   if ! run_npm_install "." --omit=dev; then
@@ -207,6 +213,12 @@ if [ ! -f "next-env.d.ts" ]; then
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
 NEXT
+fi
+ensure_workspace_packages typescript @types/react @types/react-dom @types/node
+
+if ! npm ls next --depth=0 >/dev/null 2>&1; then
+  log "Next.js not detected in workspace installation; attempting local install"
+  run_npm_install "." --include=dev
 fi
 
 previous_workspaces="${NPM_CONFIG_WORKSPACES-}"
