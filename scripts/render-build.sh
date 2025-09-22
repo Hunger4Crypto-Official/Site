@@ -7,6 +7,8 @@ source "$SCRIPT_DIR/render-common.sh"
 
 trap 'log "Render web build failed on line $LINENO"' ERR
 
+setup_npm_env
+
 ensure_workspace_packages() {
   local install_specs=()
   local requested=("$@")
@@ -173,6 +175,12 @@ else
   create_sample_content
 fi
 
+log "Installing workspace dependencies from lockfile"
+run_npm_install "."
+
+if [ ! -f "web/next-env.d.ts" ]; then
+  log "Creating web/next-env.d.ts"
+  cat <<'NEXT' > web/next-env.d.ts
 log "Installing workspace dependencies from root lockfile"
 if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
   run_npm_install "." --include=dev --workspace=@h4c/shared --workspace=@h4c/web
@@ -214,6 +222,19 @@ if [ ! -f "next-env.d.ts" ]; then
 /// <reference types="next/image-types/global" />
 NEXT
 fi
+
+log "Verifying content accessibility"
+ls -la content/mega_article/ 2>/dev/null || echo "No content dir at repo root"
+ls -la web/content/mega_article/ 2>/dev/null || echo "No content dir at web workspace"
+
+log "Building shared workspace"
+npm run build --workspace=@h4c/shared --if-present
+
+log "Building web application"
+npm run build --workspace=@h4c/web
+
+log "Listing build artifacts"
+ls -la web/.next/ || true
 ensure_workspace_packages typescript @types/react @types/react-dom @types/node
 
 if ! npm ls next --depth=0 >/dev/null 2>&1; then

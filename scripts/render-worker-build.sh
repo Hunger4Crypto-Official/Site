@@ -15,7 +15,11 @@ log "Directory contents:"
 ls -la
 log "Node version: $(node --version)"
 log "npm version: $(npm --version)"
+log "Installing repository dependencies"
+run_npm_install "."
 
+log "Building shared workspace"
+npm run build --workspace=@h4c/shared --if-present
 log "Installing bot workspace dependencies"
 if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
   run_npm_install "." --omit=dev --workspace=@h4c/shared --workspace=@h4c/bot
