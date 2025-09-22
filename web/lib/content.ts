@@ -33,6 +33,42 @@ function resolveContentDirectory(): string {
 // Content lives in content/mega_article/*.json, but allow overrides for hosted builds
 const CONTENT_DIR = resolveContentDirectory();
 
+// FIXED: Content directory resolution for Render deployment
+const CONTENT_DIR = (() => {
+  // In production/build, content is at web/content/mega_article
+  const primaryPath = path.join(process.cwd(), "content", "mega_article");
+  const webPath = path.join(process.cwd(), "web", "content", "mega_article");
+  
+  // Check both possible locations
+  if (fs.existsSync(primaryPath)) {
+    console.log(`✓ Content found at: ${primaryPath}`);
+    return primaryPath;
+  }
+  
+  if (fs.existsSync(webPath)) {
+    console.log(`✓ Content found at: ${webPath}`);
+    return webPath;
+  }
+  
+  // For Render, during build the structure might be different
+  // Try relative to where Next.js runs from
+  const buildPath = path.resolve("content", "mega_article");
+  if (fs.existsSync(buildPath)) {
+    console.log(`✓ Content found at: ${buildPath}`);
+    return buildPath;
+  }
+  
+  console.warn(`⚠️ Content directory not found, using: ${primaryPath}`);
+  return primaryPath;
+})();
+
+// Log what files we can see (helpful for debugging)
+console.log("Content directory status:", {
+  exists: fs.existsSync(CONTENT_DIR),
+  path: CONTENT_DIR,
+  files: fs.existsSync(CONTENT_DIR) ? fs.readdirSync(CONTENT_DIR).filter(f => f.endsWith('.json')) : []
+});
+
 // FIXED: Build-safe directory listing
 function safeList(dir: string): string[] {
   try {
@@ -235,7 +271,8 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
       description: raw.description || "",
       coverImage: raw.coverImage ?? null,
       updatedAt: raw.updatedAt ?? null,
-      sections
+      sections,
+      charts: raw.charts
     };
   } catch (error) {
     console.error(`Critical error processing article ${slug}:`, error);
@@ -330,5 +367,3 @@ export function getAllArticleMetadata(): Array<Pick<Article, "slug" | "title" | 
   
   return metadata;
 }
-
-

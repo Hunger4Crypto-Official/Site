@@ -25,6 +25,9 @@
     "rehype-stringify": "^10.0.1",
     "recharts": "^2.12.7",
     "lru-cache": "^10.1.0",
+    "isomorphic-dompurify": "^2.16.0"
+  },
+  "devDependencies": {
     "typescript": "^5.6.3",
     "@types/node": "^22.7.5",
     "@types/react": "^18.3.11",
@@ -32,9 +35,6 @@
     "tailwindcss": "^3.4.13",
     "postcss": "^8.4.47",
     "autoprefixer": "^10.4.20",
-    "isomorphic-dompurify": "^2.16.0"
-  },
-  "devDependencies": {
     "@next/bundle-analyzer": "14.2.16",
     "@testing-library/react": "^16.0.1",
     "@testing-library/jest-dom": "^6.5.0",
