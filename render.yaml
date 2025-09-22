@@ -4,30 +4,7 @@ services:
     name: h4c-web
     env: node
     plan: starter  # Free tier
-    buildCommand: |
-      echo "=== Build Environment Info ===" &&
-      node --version &&
-      npm --version &&
-      pwd &&
-      ls -la &&
-      echo "=== Installing root dependencies ===" &&
-      npm ci --no-optional --silent --legacy-peer-deps &&
-      echo "=== Installing web dependencies ===" &&
-      cd web &&
-      pwd &&
-      ls -la &&
-      echo "Installing web deps..." &&
-      npm ci --no-optional --silent --legacy-peer-deps &&
-      echo "=== Installing TypeScript if missing ===" &&
-      npm install --save-dev typescript @types/react @types/react-dom @types/node ||
-      echo "TypeScript already installed or install failed" &&
-      echo "=== Checking content directory ===" &&
-      ls -la content/ || echo "No content directory at web level" &&
-      ls -la ../content/ || echo "No content directory at root level" &&
-      find . -name "*.json" -path "*/mega_article/*" || echo "No article JSON files found" &&
-      echo "=== Building web app ===" &&
-      npm run build &&
-      echo "=== Build Complete ==="
+    buildCommand: ./scripts/render-build.sh
     startCommand: cd web && npm start
     envVars:
       - key: NODE_ENV
@@ -48,24 +25,7 @@ services:
     name: h4c-bot
     env: node
     plan: starter  # Free tier
-    buildCommand: |
-      echo "=== Bot Build Environment ===" &&
-      node --version &&
-      npm --version &&
-      echo "=== Installing root dependencies ===" &&
-      npm ci --no-optional --silent --legacy-peer-deps &&
-      echo "=== Installing shared dependencies ===" &&
-      cd shared &&
-      npm ci --no-optional --silent --legacy-peer-deps || echo "Shared install skipped" &&
-      cd .. &&
-      echo "=== Installing bot dependencies ===" &&
-      cd bot &&
-      npm ci --no-optional --silent --legacy-peer-deps &&
-      echo "=== Checking bot files ===" &&
-      ls -la src/ &&
-      ls -la src/bot\ responses/ || echo "Bot responses dir not found, creating..." &&
-      mkdir -p src/bot\ responses/ &&
-      echo "=== Bot Build Complete ==="
+    buildCommand: ./scripts/render-worker-build.sh
     startCommand: cd bot && npm start
     envVars:
       - key: NODE_ENV
