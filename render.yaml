@@ -6,36 +6,6 @@ services:
     plan: starter  # Free tier
     buildCommand: ./scripts/render-build.sh
 
-    buildCommand: |
-      echo "=== H4C Web Build Starting ===" &&
-      echo "Node: $(node --version)" &&
-      echo "NPM: $(npm --version)" &&
-      echo "Working directory: $(pwd)" &&
-      echo "Directory structure:" &&
-      ls -la &&
-      echo "=== Creating content if missing ===" &&
-      if [ ! -d "web/content/mega_article" ]; then
-        mkdir -p web/content/mega_article &&
-        echo '{"slug":"foreword","title":"Welcome to H4C","sections":[{"heading":"Introduction","body":"Welcome to the H4C platform"}]}' > web/content/mega_article/foreword.json &&
-        echo '{"slug":"bitcoin","title":"Bitcoin Guide","sections":[{"heading":"Introduction","body":"Learn about Bitcoin"}]}' > web/content/mega_article/bitcoin.json &&
-        echo '{"slug":"ethereum","title":"Ethereum Guide","sections":[{"heading":"Introduction","body":"Learn about Ethereum"}]}' > web/content/mega_article/ethereum.json &&
-        echo '{"slug":"algorand","title":"Algorand Guide","sections":[{"heading":"Introduction","body":"Learn about Algorand"}]}' > web/content/mega_article/algorand.json &&
-        echo "Created sample content files"
-      fi &&
-      echo "=== Installing dependencies ===" &&
-      npm ci --production=false --loglevel=error &&
-      echo "=== Building web ===" &&
-      cd web &&
-      if [ ! -f "next-env.d.ts" ]; then
-        echo '/// <reference types="next" />' > next-env.d.ts &&
-        echo '/// <reference types="next/image-types/global" />' >> next-env.d.ts
-      fi &&
-      npm ci --production=false --loglevel=error &&
-      echo "Content check:" &&
-      ls -la content/mega_article/ 2>/dev/null || ls -la ../content/mega_article/ 2>/dev/null || echo "Using fallback content" &&
-      npm run build &&
-      echo "=== Build Complete ==="
-
     startCommand: cd web && npm start
     envVars:
       - key: NODE_ENV

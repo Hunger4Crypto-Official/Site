@@ -19,16 +19,23 @@ ensure_workspace_packages() {
     fi
 
     local version=""
-    if ! version=$(PKG_NAME="$pkg" node -e '
+    local version_output=""
+    version_output=$(PKG_NAME="$pkg" node -e '
 const fs = require("fs");
 const path = require("path");
+
 const manifestPath = path.resolve("package.json");
 if (!fs.existsSync(manifestPath)) {
   process.exit(1);
 }
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-const sections = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
+const sections = [
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "peerDependencies"
+];
 
 for (const section of sections) {
   const block = manifest[section];
@@ -39,11 +46,9 @@ for (const section of sections) {
 }
 
 process.exit(1);
-' 2>/dev/null); then
-      version=""
-    fi
+' 2>/dev/null) || version_output=""
 
-    version=${version//$'\n'/}
+    version=${version_output//$'\n'/}
 
     if [ -n "$version" ]; then
       install_specs+=("$pkg@$version")
@@ -60,41 +65,20 @@ process.exit(1);
   fi
 }
 
-setup_npm_env
-
-log() {
-  echo "=== $* ==="
-}
-
-run_npm_install() {
-  local dir="$1"
-  shift || true
-  local args=("$@")
-
-  local resolved_dir
-  resolved_dir=$(cd "$dir" && pwd)
-
-  if [ -f "$dir/package-lock.json" ] || [ -f "$dir/npm-shrinkwrap.json" ]; then
-    log "Installing dependencies with npm ci in $resolved_dir"
-    (cd "$dir" && npm ci "${args[@]}")
-  else
-    log "No lockfile found in $resolved_dir, running npm install"
-    (cd "$dir" && npm install "${args[@]}")
-  fi
-}
-
-create_sample_content() {
-  log "Creating sample content files..."
-
+ensure_sample_content() {
   local targets=(
     "content/mega_article"
     "web/content/mega_article"
   )
 
   for target in "${targets[@]}"; do
-    mkdir -p "$target"
+    if [ ! -d "$target" ]; then
+      log "Creating sample content directory at $target"
+      mkdir -p "$target"
+    fi
 
-    cat > "$target/01-foreword.json" <<'JSON'
+    if [ ! -f "$target/01-foreword.json" ]; then
+      cat <<'JSON' > "$target/01-foreword.json"
 {
   "slug": "foreword",
   "title": "Foreword: Why Crypto, Why Now",
@@ -111,8 +95,10 @@ create_sample_content() {
   ]
 }
 JSON
+    fi
 
-    cat > "$target/02-bitcoin.json" <<'JSON'
+    if [ ! -f "$target/02-bitcoin.json" ]; then
+      cat <<'JSON' > "$target/02-bitcoin.json"
 {
   "slug": "bitcoin",
   "title": "Bitcoin: The Genesis and Relentless Rise",
@@ -125,8 +111,10 @@ JSON
   ]
 }
 JSON
+    fi
 
-    cat > "$target/03-ethereum.json" <<'JSON'
+    if [ ! -f "$target/03-ethereum.json" ]; then
+      cat <<'JSON' > "$target/03-ethereum.json"
 {
   "slug": "ethereum",
   "title": "Ethereum: The World Computer",
@@ -139,8 +127,10 @@ JSON
   ]
 }
 JSON
+    fi
 
-    cat > "$target/04-algorand.json" <<'JSON'
+    if [ ! -f "$target/04-algorand.json" ]; then
+      cat <<'JSON' > "$target/04-algorand.json"
 {
   "slug": "algorand",
   "title": "Algorand: The Green Speed Demon",
@@ -153,79 +143,40 @@ JSON
   ]
 }
 JSON
+    fi
   done
-
-  log "Sample content created"
 }
 
-log "H4C Build Script Starting"
-log "Current directory: $(pwd)"
-log "Directory contents:"
-ls -la
-log "Node version: $(node --version)"
-log "npm version: $(npm --version)"
-log "Directory contents:" && ls -la
+ensure_next_env() {
+  local file="web/next-env.d.ts"
 
-if [ -d "content/mega_article" ] || [ -d "web/content/mega_article" ]; then
-  log "Content directory exists"
-  ls -la content/mega_article/ 2>/dev/null || true
-  ls -la web/content/mega_article/ 2>/dev/null || true
-else
-  log "Content directory missing, creating sample content..."
-  create_sample_content
-fi
-
-log "Installing workspace dependencies from lockfile"
-run_npm_install "."
-
-if [ ! -f "web/next-env.d.ts" ]; then
-  log "Creating web/next-env.d.ts"
-  cat <<'NEXT' > web/next-env.d.ts
-log "Installing workspace dependencies from root lockfile"
-if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
-  run_npm_install "." --include=dev --workspace=@h4c/shared --workspace=@h4c/web
-else
-  log "No root lockfile detected, running best-effort install"
-  run_npm_install "." --include=dev
-log "Installing root dependencies"
-if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
-  if ! run_npm_install "." --omit=dev; then
-    log "Root dependency installation failed or is unnecessary, continuing"
-  fi
-else
-  log "No root lockfile detected, skipping root dependency installation"
-fi
-
-if [ -d "shared" ]; then
-  log "Installing shared dependencies"
-  if [ -f "shared/package-lock.json" ] || [ -f "shared/npm-shrinkwrap.json" ]; then
-    if ! run_npm_install "shared" --omit=dev; then
-      log "Shared dependency installation failed, continuing"
-    fi
-  else
-    log "No shared lockfile detected, skipping shared dependency installation"
-  fi
-npm ci --production=false
-
-if [ -d "shared" ]; then
-  log "Installing shared dependencies"
-  (cd shared && npm ci --production=false || true)
-fi
-
-log "Installing web dependencies"
-cd web
-
-if [ ! -f "next-env.d.ts" ]; then
-  log "Creating next-env.d.ts..."
-  cat <<'NEXT' > next-env.d.ts
+  if [ ! -f "$file" ]; then
+    log "Creating $file"
+    cat <<'NEXT' > "$file"
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
 NEXT
-fi
+  fi
+}
+
+log "H4C Web build starting"
+log "Working directory: $(pwd)"
+ls -la
+log "Node version: $(node --version)"
+log "npm version: $(npm --version)"
+
+ensure_sample_content
+ensure_next_env
+
+log "Installing repository dependencies"
+run_npm_install "." --include=dev
+
+log "Ensuring TypeScript toolchain is present"
+ensure_workspace_packages typescript @types/react @types/react-dom @types/node
 
 log "Verifying content accessibility"
-ls -la content/mega_article/ 2>/dev/null || echo "No content dir at repo root"
-ls -la web/content/mega_article/ 2>/dev/null || echo "No content dir at web workspace"
+ls -la content/mega_article/ 2>/dev/null || log "No content dir at repo root"
+ls -la web/content/mega_article/ 2>/dev/null || log "No content dir at web workspace"
 
 log "Building shared workspace"
 npm run build --workspace=@h4c/shared --if-present
@@ -233,35 +184,7 @@ npm run build --workspace=@h4c/shared --if-present
 log "Building web application"
 npm run build --workspace=@h4c/web
 
-log "Listing build artifacts"
+log "Listing web build artifacts"
 ls -la web/.next/ || true
-ensure_workspace_packages typescript @types/react @types/react-dom @types/node
 
-if ! npm ls next --depth=0 >/dev/null 2>&1; then
-  log "Next.js not detected in workspace installation; attempting local install"
-  run_npm_install "." --include=dev
-fi
-
-previous_workspaces="${NPM_CONFIG_WORKSPACES-}"
-export NPM_CONFIG_WORKSPACES=false
-run_npm_install "." --include=dev
-if [ -n "${previous_workspaces:-}" ]; then
-  export NPM_CONFIG_WORKSPACES="$previous_workspaces"
-else
-  unset NPM_CONFIG_WORKSPACES
-fi
-ensure_workspace_packages typescript @types/react @types/react-dom @types/node
-run_npm_install "." --production=false
-npm ci --production=false
-
-log "Verifying content accessibility"
-ls -la content/mega_article/ 2>/dev/null || echo "No content dir at web level"
-ls -la ../content/mega_article/ 2>/dev/null || echo "No content dir at root level"
-
-log "Building web application"
-npm run build
-
-log "Build completed successfully"
-ls -la .next/
-
-log "H4C Build Complete"
+log "H4C Web build complete"
