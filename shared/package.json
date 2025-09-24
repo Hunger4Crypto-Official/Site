@@ -28,8 +28,8 @@
     "build": "echo \"Shared package build complete\"",
     "test": "node --test test/*.test.js || echo \"No shared tests found\"",
     "test:watch": "node --test --watch test/*.test.js",
-    "lint": "eslint . --ext .js",
-    "lint:fix": "eslint . --ext .js --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "type-check": "echo \"Shared is JavaScript - no type checking needed\""
   },
   "dependencies": {
@@ -41,7 +41,9 @@
     "pino-pretty": "^11.2.2"
   },
   "devDependencies": {
-    "eslint": "^8.57.0"
+    "eslint": "^8.57.0",
+    "@eslint/js": "^8.57.1",
+    "globals": "^13.24.0"
   },
   "peerDependencies": {
     "node": ">=18.18.0"

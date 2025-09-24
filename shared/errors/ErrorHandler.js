@@ -63,7 +63,7 @@ export class ErrorHandler {
   }
   
   static createMiddleware() {
-    return (error, req, res, next) => {
+    return (error, req, res, _next) => {
       const context = {
         operation: `${req.method} ${req.path}`,
         requestId: req.id,

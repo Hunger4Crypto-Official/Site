@@ -1,6 +1,46 @@
 import { z } from 'zod';
 import DOMPurify from 'isomorphic-dompurify';
 
+const blockedIpv4Ranges = [
+  { label: '0.0.0.0/8', test: (octets) => octets[0] === 0 },
+  { label: '127.0.0.0/8', test: (octets) => octets[0] === 127 },
+  { label: '169.254.0.0/16', test: (octets) => octets[0] === 169 && octets[1] === 254 },
+  { label: '224.0.0.0/4', test: (octets) => octets[0] >= 224 && octets[0] <= 239 },
+  { label: '240.0.0.0/4', test: (octets) => octets[0] >= 240 },
+];
+
+const blockedIpv6Prefixes = [
+  '::',
+  '::1',
+  'fe80::',
+  'fc00::',
+  'fd00::',
+  'ff00::',
+];
+
+function isBlockedIpAddress(ip) {
+  if (!ip) {
+    return true;
+  }
+
+  if (ip.includes(':')) {
+    const normalized = ip.toLowerCase();
+    return blockedIpv6Prefixes.some(prefix => normalized.startsWith(prefix));
+  }
+
+  const parts = ip.split('.');
+  if (parts.length !== 4) {
+    return true;
+  }
+
+  const octets = parts.map(part => Number.parseInt(part, 10));
+  if (octets.some(num => Number.isNaN(num) || num < 0 || num > 255)) {
+    return true;
+  }
+
+  return blockedIpv4Ranges.some(({ test }) => test(octets));
+}
+
 export const schemas = {
   email: z.string()
     .email('Invalid email format')
@@ -55,15 +95,7 @@ export const schemas = {
     
   ipAddress: z.string()
     .ip('Invalid IP address format')
-    .refine(ip => {
-      // Block obviously malicious IPs
-      const blockedRanges = [
-        '0.0.0.0/8', '127.0.0.0/8', '169.254.0.0/16', 
-        '224.0.0.0/4', '240.0.0.0/4'
-      ];
-      // This would need additional IP range checking logic
-      return !ip.startsWith('127.') && !ip.startsWith('0.');
-    }, 'Invalid IP address range'),
+    .refine(ip => !isBlockedIpAddress(ip), 'Invalid IP address range'),
     
   asaId: z.number()
     .int('ASA ID must be an integer')
