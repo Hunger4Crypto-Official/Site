@@ -572,23 +572,6 @@ client.on('guildMemberAdd', async (member) => {
   }
 });
 
-// ----------- Core community + personality handler -----------
-    logger.error({ error: String(error), member: member.id }, 'Failed to ensure user on join');
-  }
-
-  const channelId = Settings.welcomeChannelId;
-  if (!channelId) return;
-
-  const channel = await CommunityEngagementService.resolveChannel(channelId);
-  if (!channel) return;
-
-  try {
-    await channel.send(PersonalityService.welcomeMessage(member));
-  } catch (error) {
-    logger.error({ error: String(error), member: member.id }, 'Failed to send welcome message');
-  }
-});
-
 // ----------- GM auto-reply handler -----------
 client.on('messageCreate', async (message) => {
   if (
