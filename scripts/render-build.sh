@@ -9,80 +9,6 @@ trap 'log "Render web build failed on line $LINENO"' ERR
 
 setup_npm_env
 
-ensure_workspace_packages() {
-  local install_specs=()
-  local requested=("$@")
-
-  for pkg in "${requested[@]}"; do
-    if npm ls "$pkg" --depth=0 >/dev/null 2>&1; then
-      continue
-    fi
-
-    local version=""
-    if ! version=$(PKG_NAME="$pkg" node -e '
-const fs = require("fs");
-const path = require("path");
-const manifestPath = path.resolve("package.json");
-if (!fs.existsSync(manifestPath)) {
-  process.exit(1);
-}
-
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-const sections = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
-
-for (const section of sections) {
-  const block = manifest[section];
-  if (block && block[process.env.PKG_NAME]) {
-    process.stdout.write(String(block[process.env.PKG_NAME]));
-    process.exit(0);
-  }
-}
-
-process.exit(1);
-' 2>/dev/null); then
-      version=""
-    fi
-
-    version=${version//$'\n'/}
-
-    if [ -n "$version" ]; then
-      install_specs+=("$pkg@$version")
-    else
-      install_specs+=("$pkg")
-    fi
-  done
-
-  if [ ${#install_specs[@]} -gt 0 ]; then
-    log "Installing missing workspace packages: ${install_specs[*]}"
-    npm install --no-save --no-package-lock --no-audit --no-fund "${install_specs[@]}"
-  else
-    log "Verified required packages are already installed: ${requested[*]}"
-  fi
-}
-
-setup_npm_env
-
-log() {
-  echo "=== $* ==="
-}
-
-run_npm_install() {
-  local dir="$1"
-  shift || true
-  local args=("$@")
-
-  local resolved_dir
-  resolved_dir=$(cd "$dir" && pwd)
-
-  if [ -f "$dir/package-lock.json" ] || [ -f "$dir/npm-shrinkwrap.json" ]; then
-    log "Installing dependencies with npm ci in $resolved_dir"
-    (cd "$dir" && npm ci "${args[@]}")
-  else
-    log "No lockfile found in $resolved_dir, running npm install"
-    (cd "$dir" && npm install "${args[@]}")
-  fi
-}
-
 create_sample_content() {
   log "Creating sample content files..."
 
@@ -164,7 +90,6 @@ log "Directory contents:"
 ls -la
 log "Node version: $(node --version)"
 log "npm version: $(npm --version)"
-log "Directory contents:" && ls -la
 
 if [ -d "content/mega_article" ] || [ -d "web/content/mega_article" ]; then
   log "Content directory exists"
@@ -181,43 +106,6 @@ run_npm_install "."
 if [ ! -f "web/next-env.d.ts" ]; then
   log "Creating web/next-env.d.ts"
   cat <<'NEXT' > web/next-env.d.ts
-log "Installing workspace dependencies from root lockfile"
-if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
-  run_npm_install "." --include=dev --workspace=@h4c/shared --workspace=@h4c/web
-else
-  log "No root lockfile detected, running best-effort install"
-  run_npm_install "." --include=dev
-log "Installing root dependencies"
-if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
-  if ! run_npm_install "." --omit=dev; then
-    log "Root dependency installation failed or is unnecessary, continuing"
-  fi
-else
-  log "No root lockfile detected, skipping root dependency installation"
-fi
-
-if [ -d "shared" ]; then
-  log "Installing shared dependencies"
-  if [ -f "shared/package-lock.json" ] || [ -f "shared/npm-shrinkwrap.json" ]; then
-    if ! run_npm_install "shared" --omit=dev; then
-      log "Shared dependency installation failed, continuing"
-    fi
-  else
-    log "No shared lockfile detected, skipping shared dependency installation"
-  fi
-npm ci --production=false
-
-if [ -d "shared" ]; then
-  log "Installing shared dependencies"
-  (cd shared && npm ci --production=false || true)
-fi
-
-log "Installing web dependencies"
-cd web
-
-if [ ! -f "next-env.d.ts" ]; then
-  log "Creating next-env.d.ts..."
-  cat <<'NEXT' > next-env.d.ts
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
 NEXT
@@ -235,33 +123,5 @@ npm run build --workspace=@h4c/web
 
 log "Listing build artifacts"
 ls -la web/.next/ || true
-ensure_workspace_packages typescript @types/react @types/react-dom @types/node
-
-if ! npm ls next --depth=0 >/dev/null 2>&1; then
-  log "Next.js not detected in workspace installation; attempting local install"
-  run_npm_install "." --include=dev
-fi
-
-previous_workspaces="${NPM_CONFIG_WORKSPACES-}"
-export NPM_CONFIG_WORKSPACES=false
-run_npm_install "." --include=dev
-if [ -n "${previous_workspaces:-}" ]; then
-  export NPM_CONFIG_WORKSPACES="$previous_workspaces"
-else
-  unset NPM_CONFIG_WORKSPACES
-fi
-ensure_workspace_packages typescript @types/react @types/react-dom @types/node
-run_npm_install "." --production=false
-npm ci --production=false
-
-log "Verifying content accessibility"
-ls -la content/mega_article/ 2>/dev/null || echo "No content dir at web level"
-ls -la ../content/mega_article/ 2>/dev/null || echo "No content dir at root level"
-
-log "Building web application"
-npm run build
-
-log "Build completed successfully"
-ls -la .next/
 
 log "H4C Build Complete"

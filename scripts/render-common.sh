@@ -67,11 +67,6 @@ setup_npm_env() {
   export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$HOME/.npm}"
   export H4C_NPM_INSTALL_ATTEMPTS="${H4C_NPM_INSTALL_ATTEMPTS:-4}"
   export H4C_NPM_INSTALL_DELAY="${H4C_NPM_INSTALL_DELAY:-10}"
-  export NPM_CONFIG_FETCH_TIMEOUT="${NPM_CONFIG_FETCH_TIMEOUT:-120000}"
-  export NPM_CONFIG_FETCH_RETRIES="${NPM_CONFIG_FETCH_RETRIES:-5}"
-  export NPM_CONFIG_FETCH_RETRY_MINTIMEOUT="${NPM_CONFIG_FETCH_RETRY_MINTIMEOUT:-20000}"
-  export NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT="${NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT:-120000}"
-  export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$HOME/.npm}"
 }
 
 run_npm_install() {
@@ -92,10 +87,5 @@ run_npm_install() {
   else
     log "No lockfile found in $resolved_dir, running npm install"
     retry_command "$H4C_NPM_INSTALL_ATTEMPTS" "$H4C_NPM_INSTALL_DELAY" run_in_dir "$dir" npm install "${install_args[@]}"
-    (cd "$dir" && npm ci "${install_args[@]}")
-  else
-    log "No lockfile found in $resolved_dir, running npm install"
-    (cd "$dir" && npm install "${install_args[@]}")
   fi
 }
-
