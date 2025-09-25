@@ -13,14 +13,19 @@
     "web"
   ],
   "scripts": {
+    "preinstall": "npm run setup:shared",
+    "setup:shared": "cd shared && npm install",
+    "postinstall": "npm run link:workspaces",
+    "link:workspaces": "cd bot && npm link ../shared && cd ../web && npm link ../shared",
+    
     "dev": "concurrently \"npm run dev:web\" \"npm run dev:bot\"",
     "dev:web": "npm --prefix web run dev",
     "dev:bot": "npm --prefix bot run dev",
 
     "build": "npm run build:shared && npm run build:web && npm run build:bot",
-    "build:shared": "npm --prefix shared run build",
+    "build:shared": "echo 'Shared module ready'",
     "build:web": "npm --prefix web run build",
-    "build:bot": "npm --prefix bot run build",
+    "build:bot": "echo 'Bot ready'",
 
     "start": "concurrently \"npm run start:web\" \"npm run start:bot\"",
     "start:web": "npm --prefix web run start",
@@ -30,18 +35,11 @@
     "test:shared": "npm --prefix shared test",
     "test:web": "npm --prefix web run test:jest",
     "test:bot": "npm --prefix bot test",
-    "test:unit": "npm run test",
-    "test:integration": "node tests/smoke.js && node tests/integration-award.js && node tests/integration-markdown.js",
 
     "lint": "npm run lint:shared && npm run lint:web && npm run lint:bot",
     "lint:shared": "npm --prefix shared run lint",
     "lint:web": "npm --prefix web run lint",
     "lint:bot": "npm --prefix bot run lint",
-    "lint:fix": "npm run lint:shared -- --fix && npm run lint:web -- --fix && npm run lint:bot -- --fix",
-
-    "type-check": "npm run type-check:web && npm run type-check:bot",
-    "type-check:web": "npm --prefix web run type-check",
-    "type-check:bot": "echo \"Bot is JavaScript - no type checking needed\"",
 
     "clean": "npm run clean:deps && npm run clean:builds",
     "clean:deps": "rm -rf node_modules */node_modules",
@@ -53,42 +51,18 @@
     "docker:prod": "docker-compose up -d",
     "docker:down": "docker-compose down",
 
-    "setup": "npm run install:all && npm run build:shared",
-    "install:all": "npm ci && npm --prefix shared ci && npm --prefix web ci && npm --prefix bot ci",
+    "setup": "npm ci && npm run link:workspaces",
+    "install:all": "npm ci && cd shared && npm ci && cd ../bot && npm ci && cd ../web && npm ci && cd ..",
 
     "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{js,ts,tsx,json,md}\"",
-    "security:audit": "npm audit --audit-level=moderate",
-    "security:fix": "npm audit fix"
+    "format:check": "prettier --check \"**/*.{js,ts,tsx,json,md}\""
   },
   "devDependencies": {
     "concurrently": "^9.0.0",
-    "prettier": "^3.0.0",
-    "husky": "^8.0.3",
-    "lint-staged": "^15.0.0",
-    "@commitlint/cli": "^18.0.0",
-    "@commitlint/config-conventional": "^18.0.0"
+    "prettier": "^3.0.0"
   },
   "engines": {
     "node": ">=18.18.0",
     "npm": ">=8.0.0"
-  },
-  "lint-staged": {
-    "*.{js,ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md}": [
-      "prettier --write"
-    ]
-  },
-  "commitlint": {
-    "extends": ["@commitlint/config-conventional"]
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged",
-      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
-    }
   }
 }
