@@ -4,7 +4,7 @@ import { BadgeEvaluationService } from '../services/badgeEvaluationService.js';
 import { config } from '@h4c/shared/config';
 import { withLock } from './lock.js';
 import { sleep, retry } from '@h4c/shared/utils';
-import { cache } from '@h4c/shared/cache/CacheManager';
+import { cache } from '@h4c/shared/cache';
 
 const INTERVAL_MS = config.performance.autoAwards.bucketPeriodMin * 60 * 1000;
 
