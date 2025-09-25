@@ -1,35 +1,50 @@
 # bot/Dockerfile
 FROM node:18-alpine AS base
-
-# Install dependencies only when needed
-FROM base AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json* ./
+# Copy shared module first
+FROM base AS shared
+COPY shared/package*.json ./shared/
+COPY shared/ ./shared/
+WORKDIR /app/shared
+RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Production image
-FROM base AS runner
+# Build bot with shared module
+FROM base AS builder
 WORKDIR /app
 
-ENV NODE_ENV production
+# Copy shared from previous stage
+COPY --from=shared /app/shared ./shared
+
+# Copy bot package files
+COPY bot/package*.json ./bot/
+
+# Install bot dependencies
+WORKDIR /app/bot
+RUN npm ci --omit=dev || npm install --omit=dev
+
+# Link shared module
+RUN npm install ../shared --install-links
+
+# Copy bot source code
+COPY bot/ .
+
+# Final production image
+FROM node:18-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
 
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 botuser
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 botuser
 
-# Copy dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
+# Copy everything from builder
+COPY --from=builder --chown=botuser:nodejs /app/shared ./shared
+COPY --from=builder --chown=botuser:nodejs /app/bot ./bot
 
-# Copy application code
-COPY . .
-
-# Change ownership
-RUN chown -R botuser:nodejs /app
+# Set working directory to bot
+WORKDIR /app/bot
 
 USER botuser
 
