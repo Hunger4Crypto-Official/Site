@@ -1,4 +1,4 @@
-# web/Dockerfile
+# bot/Dockerfile
 FROM node:18-alpine AS base
 
 # Install dependencies only when needed
@@ -6,50 +6,33 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
+# Copy package files
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production --ignore-scripts
 
-# Rebuild the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Install dependencies
+RUN npm ci --only=production
 
-# Install dev dependencies for build
-RUN npm install --only=development
-
-# Next.js collects completely anonymous telemetry data about general usage.
-ENV NEXT_TELEMETRY_DISABLED 1
-
-# Build with error handling
-RUN npm run build
-
-# Production image, copy all the files and run next
+# Production image
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
 
+# Create non-root user
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN adduser --system --uid 1001 botuser
 
-COPY --from=builder /app/public ./public
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
+# Copy application code
+COPY . .
 
-# Automatically leverage output traces to reduce image size
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Change ownership
+RUN chown -R botuser:nodejs /app
 
-USER nextjs
+USER botuser
 
-EXPOSE 3001
+EXPOSE 3000
 
-ENV PORT 3001
-ENV HOSTNAME "0.0.0.0"
-
-CMD ["node", "server.js"]
+CMD ["node", "src/index.js"]
