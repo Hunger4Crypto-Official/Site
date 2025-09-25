@@ -1,46 +1,47 @@
 services:
-  # === Web Frontend (Next.js) ===
-  - type: web
-    name: h4c-web
-    env: node
-    plan: starter  # Free tier
-    buildCommand: ./scripts/render-build.sh
-
-    startCommand: cd web && npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: NODE_VERSION
-        value: "18.20.5"
-      - key: PORT
-        value: "10000"
-      - key: NEXT_PUBLIC_SITE_URL
-        fromService:
-          type: web
-          name: h4c-web
-          property: host
-      - key: ALGO_USD_FALLBACK
-        value: "0.20"
-    autoDeploy: true
-
-  # === Discord Bot Worker ===
   - type: worker
     name: h4c-bot
     env: node
-    plan: starter  # Free tier
-    buildCommand: ./scripts/render-worker-build.sh
-    startCommand: cd bot && npm start
+    plan: starter
+    
+    # Build with memory limits
+    buildCommand: |
+      export NODE_OPTIONS="--max-old-space-size=256"
+      cd shared && npm ci --production
+      cd ../bot && npm ci --production
+    
+    # Start with memory constraints
+    startCommand: |
+      cd bot && node --max-old-space-size=384 --expose-gc src/index.js
+    
     envVars:
       - key: NODE_ENV
         value: production
-      - key: LOG_LEVEL
-        value: info
-      - key: ENABLE_HTTP
+      
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=384"
+      
+      # Reduce connection pools
+      - key: DB_POOL_SIZE
+        value: "2"
+      
+      - key: REDIS_MAX_RETRIES
+        value: "1"
+      
+      # Disable memory-heavy features
+      - key: ENABLE_AUTO_AWARDS
         value: "false"
-      - key: PORT
-        value: "10000"
-
-      # === REQUIRED SECRETS (Set in Render UI) ===
+      
+      - key: ENABLE_METRICS
+        value: "false"
+      
+      - key: ENABLE_LEADERBOARDS
+        value: "false"
+      
+      - key: ENABLE_ADVANCED_LOGGING
+        value: "false"
+      
+      # Required
       - key: BOT_TOKEN
         sync: false
       - key: MONGODB_URI
@@ -49,33 +50,11 @@ services:
         sync: false
       - key: DISCORD_GUILD_ID
         sync: false
-      # Add if you have the bot API running elsewhere
-      - key: BOT_API_URL
-        value: ""  # Set this if you have a bot service
       - key: ADMIN_JWT_SECRET
-        sync: false  # Set in Render dashboard
+        sync: false
+    
+    # Auto-restart if it crashes
     autoDeploy: true
     
-  # === Optional: Discord Bot Worker (comment out if not needed) ===
-  # - type: worker
-  #   name: h4c-bot
-  #   env: node
-  #   plan: starter
-  #   buildCommand: |
-  #     npm ci --production=false &&
-  #     cd bot &&
-  #     npm ci --production=false
-  #   startCommand: cd bot && npm start
-  #   envVars:
-  #     - key: NODE_ENV
-  #       value: production
-  #     - key: BOT_TOKEN
-  #       sync: false
-  #     - key: MONGODB_URI
-  #       sync: false
-  #     - key: REDIS_URL
-  #       sync: false
-  #     - key: DISCORD_GUILD_ID
-  #       sync: false
-  #     - key: ADMIN_JWT_SECRET
-  #       sync: false
+    # Health check
+    healthCheckPath: /health
