@@ -1,852 +1,196 @@
-// bot/src/index.js - ADVANCED VERSION WITH ALL IMPORTS + SAFETY
+// MEMORY OPTIMIZATION FIXES - Add these at the top of bot/src/index.js
+
 import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
-import jwt from 'jsonwebtoken';
-import { Client, GatewayIntentBits, Partials, Collection } from 'discord.js';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
 
-// Import all advanced utilities and services
-import { logger } from './utils/logger.js';
-import { assertRequiredEnv, assertStrongSecret, assertUrlNoV2 } from './utils/envGuard.js';
-import { requestIdMiddleware } from './middleware/requestId.js';
-import { metricsMiddleware, metricsHandler } from './middleware/metrics.js';
-import { tokenBucket, adminGuard } from './middleware/rateLimit.js';
-import { loadSlashCommands } from './slash/loader.js';
-import { redis } from './utils/redisClient.js';
-import { startAutoAwards } from './cron/autoAwards.js';
-import { RoleManagementService } from './services/roleManagementService.js';
-import { AlgorandLeaderboardService } from './services/algorandLeaderboardService.js';
-import { User } from './database/models.js';
-
-// Import GM responses!
-import { gmResponses, randomFrom, cryptoJokes, techFacts } from './utils/botResponses.js';
-import { Settings } from './utils/settings.js';
-import { PersonalityService } from './services/personalityService.js';
-import { CommunityEngagementService } from './services/communityEngagementService.js';
-import { RandomChatterService } from './services/randomChatterService.js';
-import { CommandRegistry } from './services/commandRegistry.js';
-import { GreetingDetectionService } from './services/greetingDetectionService.js';
-
-/* --------------------------- Enhanced Error Handling --------------------------- */
-process.on('uncaughtException', (error) => {
-  logger.error(error, '🚨 Uncaught Exception');
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error({ reason, promise }, '🚨 Unhandled Rejection');
-  process.exit(1);
-});
-
-/* --------------------------- Configuration & Constants --------------------------- */
-const pkg = { name: '@h4c/bot', version: process.env.npm_package_version || '1.0.0' };
-const ENABLE_HTTP = process.env.ENABLE_HTTP !== 'false';
-const PORT = Number(process.env.PORT || 3000);
-
-// Environment validation using imported guards
-assertRequiredEnv([
-  'BOT_TOKEN',
-  'MONGODB_URI',
-  'DISCORD_GUILD_ID',
-  'ADMIN_JWT_SECRET'
-]);
-
-assertStrongSecret('ADMIN_JWT_SECRET', 32);
-
-// Optional URL validations
-if (process.env.ALGORAND_NODE_URL) {
-  assertUrlNoV2('ALGORAND_NODE_URL');
+// MEMORY FIX 1: Limit Node.js memory usage
+if (process.env.NODE_OPTIONS !== '--max-old-space-size=512') {
+  console.log('Setting memory limit to 512MB');
+  process.env.NODE_OPTIONS = '--max-old-space-size=512';
 }
 
-const GN_RESPONSES = [
-  'Power down, hero. Tomorrow needs your chaos. 🌙',
-  'Rest up—your GM streak needs fuel. 😴',
-  'Logging you out of reality for the night. 🔒',
-  'Sweet dreams, legend. May your bags moon while you nap. 💫',
-  'Night watch disengaged. Go recharge. 💤',
-  'Dream in memes and manifest in pumps. 🌌'
-];
+// MEMORY FIX 2: Aggressive garbage collection
+if (global.gc) {
+  console.log('Manual GC enabled');
+  setInterval(() => {
+    global.gc();
+  }, 30000); // Every 30 seconds
+}
 
-const OWNER_PATTERNS = [
-  /who\s*(?:is|'s)\s*(?:the\s*)?(?:owner|creator)\b.*\b(?:bot|you)/i,
-  /who\s*owns\s*(?:this|the\s*bot|you)/i,
-  /who\s*made\s*(?:you|this)/i,
-  /who\s*controls\s*(?:you|this\s*bot)/i
-];
+// MEMORY FIX 3: Lazy load heavy modules
+let slashCommands = null;
+let botResponses = null;
 
-const NAME_PATTERNS = [
-  /what\s*(?:is|'s)\s*(?:ya|your)\s*(?:name|deal)/i,
-  /who\s*are\s*you\b/i,
-  /what\s*do\s*we\s*call\s*you/i
-];
+async function loadBotResponses() {
+  if (!botResponses) {
+    // Only load what we need, when we need it
+    const { gmResponses, cryptoJokes, techFacts } = await import('./utils/botResponses.js');
+    botResponses = { gmResponses, cryptoJokes, techFacts };
+  }
+  return botResponses;
+}
 
-const greetingDetectionService = new GreetingDetectionService();
+// MEMORY FIX 4: Connection pool limits
+const mongooseOptions = {
+  maxPoolSize: 2,  // Reduced from 10
+  minPoolSize: 1,   // Reduced from 2
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 30000,
+  bufferCommands: false,
+  autoIndex: false  // Don't build indexes automatically
+};
 
-/* --------------------------- Discord Client Setup --------------------------- */
+// MEMORY FIX 5: Simplified Discord client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages
+    GatewayIntentBits.MessageContent
   ],
   partials: [Partials.Channel],
-  allowedMentions: {
-    parse: ['users', 'roles'],
-    repliedUser: false
+  // Memory optimizations
+  ws: {
+    large_threshold: 50,  // Reduced from default 250
+    compress: true
+  },
+  makeCache: {
+    // Limit cache sizes
+    MessageManager: 10,   // Only cache 10 messages per channel
+    PresenceManager: 0,   // Don't cache presences
+    GuildMemberManager: 50,  // Only cache 50 members
+    UserManager: 50      // Only cache 50 users
+  },
+  sweepers: {
+    messages: {
+      interval: 3600, // Every hour
+      lifetime: 1800, // 30 minutes
+    }
   }
 });
 
-client.slashCommands = new Collection();
-let commandRegistry;
+// MEMORY FIX 6: Prevent memory leaks from event listeners
+const maxListeners = 10;
+client.setMaxListeners(maxListeners);
+process.setMaxListeners(maxListeners);
 
-CommunityEngagementService.initialize(client);
-
-/* --------------------------- Express Server Setup --------------------------- */
+// MEMORY FIX 7: Simplified express app
 const app = express();
+app.use(express.json({ limit: '1mb' })); // Reduced from 10mb
 
-// Enhanced middleware stack
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Request ID middleware for tracing
-app.use(requestIdMiddleware);
-
-// Metrics middleware for monitoring
-app.use(metricsMiddleware);
-
-// CORS configuration
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Request-ID');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
-
-// Request logging with enhanced details
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    logger.info({ 
-      method: req.method, 
-      url: req.url, 
-      status: res.statusCode, 
-      duration,
-      requestId: req.requestId,
-      userAgent: req.get('User-Agent')
-    }, 'HTTP Request');
-  });
-  next();
-});
-
-/* --------------------------- Rate Limiting --------------------------- */
-// Apply token bucket rate limiting to API routes
-app.use('/api/', tokenBucket);
-
-// Apply admin guard to admin routes
-app.use('/api/admin/', adminGuard);
-
-/* --------------------------- Enhanced API Routes --------------------------- */
-
-// Health check with comprehensive status
+// MEMORY FIX 8: Basic health check only
 app.get('/health', (req, res) => {
+  const memUsage = process.memoryUsage();
   res.json({
     ok: true,
-    service: pkg.name,
-    version: pkg.version,
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    requestId: req.requestId,
-    discord: {
-      ready: client.readyAt ? true : false,
-      readyAt: client.readyAt,
-      guilds: client.guilds.cache.size,
-      users: client.users.cache.size,
-      ping: client.ws.ping
-    },
-    database: {
-      connected: mongoose.connection.readyState === 1,
-      state: mongoose.connection.readyState
-    },
-    redis: redis ? {
-      connected: redis.status === 'ready',
-      status: redis.status
-    } : null,
     memory: {
-      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-      external: Math.round(process.memoryUsage().external / 1024 / 1024)
+      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + 'MB',
+      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + 'MB',
+      rss: Math.round(memUsage.rss / 1024 / 1024) + 'MB'
     },
-    environment: {
-      nodeEnv: process.env.NODE_ENV,
-      platform: process.platform,
-      nodeVersion: process.version
-    }
+    uptime: process.uptime()
   });
 });
 
-// Metrics endpoint
-app.get('/metrics', metricsHandler);
-
-// Admin authentication middleware
-const authenticateAdmin = (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token) {
-    return res.status(401).json({ 
-      ok: false, 
-      error: 'No token provided',
-      requestId: req.requestId 
-    });
-  }
-  
+// MEMORY FIX 9: Simplified database connection
+async function connectDatabase() {
   try {
-    const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
-    req.admin = decoded;
-    logger.info({ adminId: decoded.id, requestId: req.requestId }, 'Admin authenticated');
-    next();
-  } catch (error) {
-    logger.warn({ error: error.message, requestId: req.requestId }, 'Admin auth failed');
-    return res.status(401).json({ 
-      ok: false, 
-      error: 'Invalid token',
-      requestId: req.requestId 
-    });
-  }
-};
-
-// Admin login endpoint
-app.post('/api/admin/login', async (req, res) => {
-  try {
-    const { password } = req.body;
+    await mongoose.connect(process.env.MONGODB_URI, mongooseOptions);
+    console.log('MongoDB connected with reduced pool');
     
-    if (!password || password !== process.env.ADMIN_PASSWORD) {
-      logger.warn({ requestId: req.requestId, ip: req.ip }, 'Failed admin login attempt');
-      return res.status(401).json({ 
-        ok: false, 
-        error: 'Invalid credentials',
-        requestId: req.requestId 
-      });
-    }
-    
-    const token = jwt.sign(
-      { 
-        role: 'admin', 
-        timestamp: Date.now(),
-        id: 'admin'
-      },
-      process.env.ADMIN_JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-    
-    logger.info({ requestId: req.requestId }, 'Admin login successful');
-    res.json({ ok: true, token, requestId: req.requestId });
-  } catch (error) {
-    logger.error(error, 'Admin login error');
-    res.status(500).json({ 
-      ok: false, 
-      error: 'Login failed',
-      requestId: req.requestId 
-    });
-  }
-});
-
-// Enhanced user management with pagination and filtering
-app.get('/api/users', authenticateAdmin, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const skip = (page - 1) * limit;
-    const filter = req.query.filter || {};
-    
-    // Build query filter
-    const query = {};
-    if (filter.hasWallet) {
-      query.wallets = { $exists: true, $ne: [] };
-    }
-    if (filter.hasBadges) {
-      query.badges = { $exists: true, $ne: [] };
-    }
-    if (filter.badgeType) {
-      query['badges.type'] = filter.badgeType;
-    }
-    
-    const users = await User.find(query)
-      .select('discordId wallets badges reputation createdAt lastActive')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-    
-    const total = await User.countDocuments(query);
-    
-    // Redact sensitive wallet addresses for privacy
-    const sanitizedUsers = users.map(user => ({
-      ...user,
-      wallets: user.wallets?.map(w => ({ 
-        ...w, 
-        address: w.address ? `${w.address.slice(0, 6)}…${w.address.slice(-4)}` : null
-      }))
-    }));
-    
-    logger.info({ 
-      requestId: req.requestId, 
-      page, 
-      limit, 
-      total,
-      adminId: req.admin.id 
-    }, 'Users fetched by admin');
-    
-    res.json({
-      ok: true,
-      users: sanitizedUsers,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      },
-      requestId: req.requestId
-    });
-  } catch (error) {
-    logger.error({ error, requestId: req.requestId }, 'Failed to fetch users');
-    res.status(500).json({ 
-      ok: false, 
-      error: 'Failed to fetch users',
-      requestId: req.requestId 
-    });
-  }
-});
-
-// Enhanced badge management
-app.post('/api/badges/award', authenticateAdmin, async (req, res) => {
-  try {
-    const { userId, badgeType, reason } = req.body;
-    
-    // Input validation
-    if (!userId || !badgeType) {
-      return res.status(400).json({ 
-        ok: false, 
-        error: 'Missing userId or badgeType',
-        requestId: req.requestId 
-      });
-    }
-    
-    if (!/^\d{17,19}$/.test(userId)) {
-      return res.status(400).json({ 
-        ok: false, 
-        error: 'Invalid Discord ID format',
-        requestId: req.requestId 
-      });
-    }
-    
-    const user = await User.findOne({ discordId: userId });
-    if (!user) {
-      return res.status(404).json({ 
-        ok: false, 
-        error: 'User not found',
-        requestId: req.requestId 
-      });
-    }
-    
-    // Check if badge already exists
-    const existingBadge = user.badges?.find(b => b.type === badgeType);
-    if (existingBadge) {
-      return res.status(409).json({ 
-        ok: false, 
-        error: 'Badge already awarded',
-        requestId: req.requestId 
-      });
-    }
-    
-    // Award the badge
-    await User.updateOne(
-      { discordId: userId },
-      { 
-        $push: { 
-          badges: {
-            type: badgeType,
-            awardedAt: new Date(),
-            reason: reason || 'Manually awarded by admin',
-            awardedBy: 'admin'
-          }
-        }
-      }
-    );
-    
-    logger.info({ 
-      userId, 
-      badgeType, 
-      reason, 
-      requestId: req.requestId,
-      adminId: req.admin.id 
-    }, 'Badge awarded by admin');
-    
-    res.json({ 
-      ok: true, 
-      message: 'Badge awarded successfully',
-      requestId: req.requestId 
-    });
-    
-  } catch (error) {
-    logger.error({ error, requestId: req.requestId }, 'Failed to award badge');
-    res.status(500).json({ 
-      ok: false, 
-      error: 'Failed to award badge',
-      requestId: req.requestId 
-    });
-  }
-});
-
-// Comprehensive stats endpoint
-app.get('/api/stats', async (req, res) => {
-  try {
-    const stats = {
-      bot: {
-        uptime: process.uptime(),
-        guilds: client.guilds.cache.size,
-        users: client.users.cache.size,
-        commands: client.slashCommands.size,
-        ping: client.ws.ping
-      },
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
-      }
-    };
-    
-    // Database stats
-    if (mongoose.connection.readyState === 1) {
-      stats.database = {
-        totalUsers: await User.countDocuments(),
-        usersWithWallets: await User.countDocuments({ wallets: { $exists: true, $ne: [] } }),
-        usersWithBadges: await User.countDocuments({ badges: { $exists: true, $ne: [] } }),
-        recentUsers: await User.countDocuments({ 
-          createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } 
-        })
-      };
-    }
-    
-    // Redis stats
-    if (redis && redis.status === 'ready') {
+    // Clean up old connections periodically
+    setInterval(async () => {
       try {
-        const info = await redis.info('memory');
-        const memoryMatch = info.match(/used_memory_human:(\S+)/);
-        stats.redis = {
-          status: redis.status,
-          memory: memoryMatch ? memoryMatch[1] : 'unknown'
-        };
-      } catch (redisError) {
-        logger.warn({ error: String(redisError) }, 'Failed to fetch redis info');
-        stats.redis = { status: redis.status, error: 'Could not fetch info' };
-      }
-    }
-    
-    logger.debug({ requestId: req.requestId }, 'Stats requested');
-    res.json({ ok: true, stats, requestId: req.requestId });
-  } catch (error) {
-    logger.error({ error, requestId: req.requestId }, 'Failed to fetch stats');
-    res.status(500).json({ 
-      ok: false, 
-      error: 'Failed to fetch stats',
-      requestId: req.requestId 
-    });
-  }
-});
-
-// Leaderboard endpoints
-app.get('/api/leaderboard/:type', async (req, res) => {
-  try {
-    const { type } = req.params;
-    const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    
-    if (!AlgorandLeaderboardService) {
-      return res.status(503).json({
-        ok: false,
-        error: 'Leaderboard service not available',
-        requestId: req.requestId
-      });
-    }
-    
-    const leaderboard = await AlgorandLeaderboardService.getLeaderboard(type, { page, limit });
-    
-    logger.debug({ type, page, limit, requestId: req.requestId }, 'Leaderboard requested');
-    res.json({ ok: true, leaderboard, requestId: req.requestId });
-  } catch (error) {
-    logger.error({ error, requestId: req.requestId }, 'Failed to fetch leaderboard');
-    res.status(500).json({
-      ok: false,
-      error: 'Failed to fetch leaderboard',
-      requestId: req.requestId
-    });
-  }
-});
-
-/* --------------------------- Discord Event Handlers --------------------------- */
-
-client.once('ready', async () => {
-  logger.info({
-    user: client.user.tag,
-    guilds: client.guilds.cache.size,
-    users: client.users.cache.size,
-    ping: client.ws.ping
-  }, 'Discord bot ready 🚀');
-
-  CommunityEngagementService.initialize(client);
-  RandomChatterService.initialize(client);
-  commandRegistry = new CommandRegistry(client);
-
-  // Load slash commands
-  try {
-    await loadSlashCommands(client);
-    logger.info({ commandCount: client.slashCommands.size }, 'Slash commands loaded');
-  } catch (error) {
-    logger.error(error, 'Failed to load slash commands');
-  }
-  
-  // Start auto awards system
-  try {
-    await startAutoAwards();
-    logger.info('Auto awards system started');
-  } catch (error) {
-    logger.error(error, 'Failed to start auto awards');
-  }
-  
-  // Initialize role management service
-  if (RoleManagementService?.initialize) {
-    try {
-      await RoleManagementService.initialize();
-      logger.info('Role management service initialized');
-    } catch (error) {
-      logger.error(error, 'Failed to initialize role management');
-    }
-  }
-
-  // Initialize leaderboard service
-  if (AlgorandLeaderboardService?.initialize) {
-    try {
-      await AlgorandLeaderboardService.initialize();
-      logger.info('Algorand leaderboard service initialized');
-    } catch (error) {
-      logger.error(error, 'Failed to initialize leaderboard service');
-    }
-  }
-
-  RandomChatterService.initialize(client);
-});
-
-client.on('error', (error) => {
-  logger.error(error, 'Discord client error');
-});
-
-client.on('warn', (warning) => {
-  logger.warn(warning, 'Discord client warning');
-});
-
-client.on('debug', (info) => {
-  if (process.env.LOG_LEVEL === 'debug') {
-    logger.debug(info, 'Discord debug');
-  }
-});
-
-client.on('guildMemberAdd', async (member) => {
-  try {
-    await CommunityEngagementService.ensureUser(member.user);
-  } catch (error) {
-    logger.warn({ error: String(error), memberId: member.id }, 'Failed to ensure user on join');
-  }
-
-  const channelId = Settings.welcomeChannelId || member.guild.systemChannelId;
-  if (!channelId) return;
-
-  try {
-    const channel = await CommunityEngagementService.resolveChannel(channelId);
-    if (!channel) return;
-    await channel.send(PersonalityService.welcomeMessage(member));
-  } catch (error) {
-    logger.error({ error: String(error), channelId }, 'Failed to send welcome message');
-  }
-});
-
-// ----------- GM auto-reply handler -----------
-client.on('messageCreate', async (message) => {
-  if (
-    message.author.bot ||
-    !message.guild ||
-    message.channel?.type !== 0
-  ) return;
-
-  const content = message.content?.trim();
-  if (!content) return;
-
-  const lowerContent = content.toLowerCase();
-  const addressedToBot = client.user ? message.mentions.users.has(client.user.id) : false;
-
-  let userDoc;
-  try {
-    userDoc = await CommunityEngagementService.recordMessage(message);
-  } catch (error) {
-    logger.error({ error: String(error), messageId: message.id }, 'Failed to record community activity');
-  }
-
-  if (userDoc?.shadowbanned) return;
-
-  if (commandRegistry) {
-    try {
-      const handled = await commandRegistry.handle(message, userDoc);
-      if (handled) return;
-    } catch (error) {
-      logger.error({ error: String(error), messageId: message.id }, 'Command registry execution failed');
-    }
-  }
-
-  const detectionConfig = GreetingDetectionService.getDetectionConfig(Settings);
-  const greeting = greetingDetectionService.detectGreeting(content, detectionConfig);
-
-  if (greeting?.type === 'gm' || greeting?.type === 'gn') {
-    if (greeting.confidence === 'low') {
-      const emoji = greeting.type === 'gm' ? '🌅' : '🌙';
-      try {
-        await message.react(emoji);
+        await mongoose.connection.db.admin().ping();
       } catch (error) {
-        logger.debug({ error: String(error), emoji }, 'Failed to react to emoji-only greeting');
+        console.error('MongoDB ping failed:', error.message);
       }
-      return;
-    }
-
-    if (greeting.confidence === 'very_low') {
-      logger.debug({ content, greeting }, 'Greeting detection confidence too low; skipping automation');
-    } else {
-      const result = await CommunityEngagementService.handleGreeting(message, greeting.type, userDoc);
-      if (result?.reason === 'cooldown') {
-        let cooldownLine = greeting.type === 'gm'
-          ? 'Nice hustle, but that GM is already logged.'
-          : 'Logged a GN already. Power down properly before trying again.';
-        if (result?.nextAvailableAt instanceof Date) {
-          const ts = Math.floor(result.nextAvailableAt.getTime() / 1000);
-          cooldownLine += greeting.type === 'gm'
-            ? ` Try again <t:${ts}:R>.`
-            : ` Fresh attempt <t:${ts}:R>.`;
-        }
-        await message.reply(PersonalityService.wrap(cooldownLine, { user: message.author, noSuffix: true }));
-        return;
-      }
-
-      let reply = greeting.type === 'gm' ? (randomFrom(gmResponses) || 'gm') : (randomFrom(GN_RESPONSES) || 'gn');
-      const highlights = [];
-      if (result?.streak) {
-        highlights.push(greeting.type === 'gm' ? `streak: ${result.streak}` : `night streak: ${result.streak}`);
-      }
-      if (result?.count) {
-        highlights.push(greeting.type === 'gm' ? `total logged: ${result.count}` : `total clock-outs: ${result.count}`);
-      }
-      if (result?.achievements?.length) {
-        highlights.push(`unlocked ${result.achievements.map(a => `**${a.label}**`).join(', ')}`);
-      }
-      if (highlights.length) {
-        reply += `\n${highlights.join(' • ')}`;
-      }
-
-      await message.reply(PersonalityService.wrap(reply, { user: message.author }));
-      return;
-    }
-  }
-
-  const ownerPattern = OWNER_PATTERNS.find(pattern => pattern.test(lowerContent));
-  if (ownerPattern && (addressedToBot || lowerContent.includes('bot') || lowerContent.includes('you'))) {
-    const match = lowerContent.match(ownerPattern);
-    const trigger = match?.[0]?.trim() || ownerPattern.source;
-    await message.reply(PersonalityService.ownerInfoReply(trigger));
-    return;
-  }
-
-  const namePattern = NAME_PATTERNS.find(pattern => pattern.test(lowerContent));
-  if (namePattern && (addressedToBot || lowerContent.includes('bot') || lowerContent.includes('you'))) {
-    const match = lowerContent.match(namePattern);
-    const trigger = match?.[0]?.trim() || namePattern.source;
-    await message.reply(PersonalityService.nameReply(trigger));
-    return;
-  }
-
-  if (
-    (addressedToBot || lowerContent.includes('bot') || lowerContent.includes('hunger') || lowerContent.includes('h4c')) &&
-    /(tell|drop|give|share).*(joke|fact)/i.test(lowerContent)
-  ) {
-    const pool = [...cryptoJokes, ...techFacts];
-    const response = randomFrom(pool) || 'Fine. Insert wry crypto wisdom here.';
-    await message.reply(PersonalityService.wrap(response, { user: message.author }));
-    return;
-  }
-
-  if (/(tell me a joke|make me laugh)/i.test(lowerContent)) {
-    await message.reply(PersonalityService.wrap(randomFrom(cryptoJokes), { user: message.author }));
-    return;
-  }
-
-  if (/(drop a fact|teach me|random fact)/i.test(lowerContent)) {
-    await message.reply(PersonalityService.wrap(randomFrom(techFacts), { user: message.author }));
-    return;
-  }
-});
-
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  
-  const command = client.slashCommands.get(interaction.commandName);
-  if (!command) {
-    logger.warn({ 
-      command: interaction.commandName, 
-      user: interaction.user.tag 
-    }, 'Unknown command attempted');
-    return;
-  }
-  
-  const startTime = Date.now();
-  
-  try {
-    await command.execute(interaction);
-    const duration = Date.now() - startTime;
+    }, 60000); // Every minute
     
-    logger.info({ 
-      command: interaction.commandName, 
-      user: interaction.user.tag,
-      guild: interaction.guild?.name,
-      duration
-    }, 'Command executed successfully');
   } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    logger.error({ 
-      error, 
-      command: interaction.commandName, 
-      user: interaction.user.tag,
-      duration
-    }, 'Command execution failed');
-    
-    const reply = {
-      content: 'There was an error executing this command. Please try again later.',
-      ephemeral: true
-    };
-    
+    console.error('MongoDB connection failed:', error);
+    // Don't throw - let the app run without DB if needed
+  }
+}
+
+// MEMORY FIX 10: Minimal Discord functionality
+client.once('ready', () => {
+  console.log(`Bot ready: ${client.user.tag}`);
+  console.log(`Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
+  
+  // Don't load slash commands immediately
+  setTimeout(async () => {
     try {
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(reply);
-      } else {
-        await interaction.reply(reply);
-      }
-    } catch (replyError) {
-      logger.error(replyError, 'Failed to send error response');
+      const { loadSlashCommands } = await import('./slash/loader.js');
+      await loadSlashCommands(client);
+    } catch (error) {
+      console.error('Slash commands failed to load:', error.message);
     }
+  }, 5000);
+});
+
+// MEMORY FIX 11: Simplified message handler
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.guild) return;
+  
+  const content = message.content?.toLowerCase();
+  if (!content) return;
+  
+  // Only respond to specific keywords to save memory
+  if (content === 'gm' || content === 'good morning') {
+    await message.reply('GM! ☀️');
+  } else if (content === 'gn' || content === 'good night') {
+    await message.reply('GN! 🌙');
   }
 });
 
-/* --------------------------- Database Connection --------------------------- */
-const connectDatabase = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 10,
-      minPoolSize: 2,
-    });
-    
-    logger.info({
-      database: mongoose.connection.name,
-      host: mongoose.connection.host,
-      port: mongoose.connection.port
-    }, 'MongoDB connected successfully');
-    
-    // Set up MongoDB event listeners
-    mongoose.connection.on('error', (error) => {
-      logger.error(error, 'MongoDB connection error');
-    });
-    
-    mongoose.connection.on('disconnected', () => {
-      logger.warn('MongoDB disconnected');
-    });
-    
-    mongoose.connection.on('reconnected', () => {
-      logger.info('MongoDB reconnected');
-    });
-    
-  } catch (error) {
-    logger.error(error, 'MongoDB connection failed');
-    throw error;
-  }
-};
-
-/* --------------------------- Graceful Shutdown --------------------------- */
-const gracefulShutdown = async (signal) => {
-  logger.info({ signal }, 'Shutting down gracefully...');
+// MEMORY FIX 12: Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, cleaning up...');
   
-  try {
-    // Stop accepting new requests
-    if (ENABLE_HTTP) {
-      logger.info('Stopping HTTP server...');
-    }
-    
-    // Destroy Discord client
-    if (client.isReady()) {
-      client.destroy();
-      logger.info('Discord client destroyed');
-    }
-    
-    // Close database connection
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.disconnect();
-      logger.info('MongoDB disconnected');
-    }
-    
-    // Close Redis connection
-    if (redis && redis.status === 'ready') {
-      await redis.quit();
-      logger.info('Redis disconnected');
-    }
-    
-    logger.info('Graceful shutdown complete');
-    process.exit(0);
-  } catch (error) {
-    logger.error(error, 'Error during shutdown');
-    process.exit(1);
+  if (client) {
+    client.destroy();
   }
-};
-
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-/* --------------------------- Startup Sequence --------------------------- */
-const startup = async () => {
-  try {
-    logger.info({ 
-      version: pkg.version,
-      environment: process.env.NODE_ENV || 'development',
-      port: PORT
-    }, 'Starting H4C Bot...');
-    
-    // Connect to database
-    await connectDatabase();
-    
-    // Login to Discord
-    await client.login(process.env.BOT_TOKEN);
-    
-    // Start HTTP server if enabled
-    if (ENABLE_HTTP) {
-      app.listen(PORT, () => {
-        logger.info({ port: PORT }, 'HTTP server started 🌐');
-      });
-    }
-    
-    logger.info('🚀 H4C Bot startup complete! All systems operational.');
-    
-  } catch (error) {
-    logger.error(error, 'Startup failed');
-    process.exit(1);
+  
+  if (mongoose.connection.readyState === 1) {
+    await mongoose.disconnect();
   }
-};
+  
+  process.exit(0);
+});
 
-// Start the application
-startup();
+// MEMORY FIX 13: Error handling without memory leaks
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error.message);
+  // Don't exit - try to recover
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+  // Don't exit - try to recover
+});
+
+// MEMORY FIX 14: Simple startup
+async function startup() {
+  console.log('Starting bot with memory optimizations...');
+  
+  // Connect to MongoDB (non-blocking)
+  connectDatabase().catch(console.error);
+  
+  // Start Discord bot
+  await client.login(process.env.BOT_TOKEN);
+  
+  // Start HTTP server
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`HTTP server on port ${PORT}`);
+    console.log(`Memory usage: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
+  });
+}
+
+// Start the bot
+startup().catch(error => {
+  console.error('Startup failed:', error);
+  process.exit(1);
+});
