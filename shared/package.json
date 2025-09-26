@@ -45,7 +45,8 @@
     "@eslint/js": "^8.57.1",
     "globals": "^13.24.0"
   },
-  "peerDependencies": {
-    "node": ">=18.18.0"
+  "engines": {
+    "node": "18.20.x",
+    "npm": "^9.9.0"
   }
 }

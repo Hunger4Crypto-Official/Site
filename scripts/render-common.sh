@@ -46,6 +46,37 @@ run_in_dir() {
   (cd "$dir" && "$@")
 }
 
+require_node_version() {
+  local expected="$1"
+  local actual
+
+  if ! command -v node >/dev/null 2>&1; then
+    log "Node.js is not available on the PATH"
+    return 1
+  fi
+
+  actual="$(node --version 2>/dev/null || true)"
+  actual="${actual#v}"
+
+  if [ -z "$actual" ]; then
+    log "Unable to determine Node.js version"
+    return 1
+  fi
+
+  if [[ "$expected" == *".x" ]]; then
+    local prefix="${expected%\.*}"
+    if [[ "$actual" == "$prefix".* ]]; then
+      return 0
+    fi
+  elif [ "$actual" = "$expected" ]; then
+    return 0
+  fi
+
+  log "Unexpected Node.js version $actual (expected $expected)."
+  log "Set NODE_VERSION=$expected in Render and package engines."
+  return 1
+}
+
 setup_npm_env() {
   if [ "${H4C_RENDER_NPM_ENV:-0}" -eq 1 ]; then
     return 0
@@ -60,10 +91,11 @@ setup_npm_env() {
   export NPM_CONFIG_AUDIT=false
   export NPM_CONFIG_FUND=false
   export NPM_CONFIG_REGISTRY="${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org/}"
-  export NPM_CONFIG_FETCH_TIMEOUT="${NPM_CONFIG_FETCH_TIMEOUT:-120000}"
-  export NPM_CONFIG_FETCH_RETRIES="${NPM_CONFIG_FETCH_RETRIES:-5}"
-  export NPM_CONFIG_FETCH_RETRY_MINTIMEOUT="${NPM_CONFIG_FETCH_RETRY_MINTIMEOUT:-20000}"
-  export NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT="${NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT:-120000}"
+  export NPM_CONFIG_FETCH_TIMEOUT="${NPM_CONFIG_FETCH_TIMEOUT:-300000}"
+  export NPM_CONFIG_FETCH_RETRIES="${NPM_CONFIG_FETCH_RETRIES:-10}"
+  export NPM_CONFIG_FETCH_RETRY_MINTIMEOUT="${NPM_CONFIG_FETCH_RETRY_MINTIMEOUT:-60000}"
+  export NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT="${NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT:-300000}"
+  export NPM_CONFIG_PROGRESS="${NPM_CONFIG_PROGRESS:-false}"
   export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$HOME/.npm}"
   export H4C_NPM_INSTALL_ATTEMPTS="${H4C_NPM_INSTALL_ATTEMPTS:-4}"
   export H4C_NPM_INSTALL_DELAY="${H4C_NPM_INSTALL_DELAY:-10}"

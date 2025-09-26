@@ -9,76 +9,21 @@ trap 'log "Render web build failed on line $LINENO"' ERR
 
 setup_npm_env
 
-ensure_workspace_packages() {
-  local install_specs=()
-  local requested=("$@")
+TARGET_NODE_VERSION="${NODE_VERSION:-18.20.5}"
+require_node_version "$TARGET_NODE_VERSION"
 
-  for pkg in "${requested[@]}"; do
-    if npm ls "$pkg" --depth=0 >/dev/null 2>&1; then
-      continue
-    fi
+create_sample_content() {
+  log "Creating sample content files..."
 
-    local version=""
-    local version_output=""
-    version_output=$(PKG_NAME="$pkg" node -e '
-const fs = require("fs");
-const path = require("path");
-
-const manifestPath = path.resolve("package.json");
-if (!fs.existsSync(manifestPath)) {
-  process.exit(1);
-}
-
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-const sections = [
-  "dependencies",
-  "devDependencies",
-  "optionalDependencies",
-  "peerDependencies"
-];
-
-for (const section of sections) {
-  const block = manifest[section];
-  if (block && block[process.env.PKG_NAME]) {
-    process.stdout.write(String(block[process.env.PKG_NAME]));
-    process.exit(0);
-  }
-}
-
-process.exit(1);
-' 2>/dev/null) || version_output=""
-
-    version=${version_output//$'\n'/}
-
-    if [ -n "$version" ]; then
-      install_specs+=("$pkg@$version")
-    else
-      install_specs+=("$pkg")
-    fi
-  done
-
-  if [ ${#install_specs[@]} -gt 0 ]; then
-    log "Installing missing workspace packages: ${install_specs[*]}"
-    npm install --no-save --no-package-lock --no-audit --no-fund "${install_specs[@]}"
-  else
-    log "Verified required packages are already installed: ${requested[*]}"
-  fi
-}
-
-ensure_sample_content() {
   local targets=(
     "content/mega_article"
     "web/content/mega_article"
   )
 
   for target in "${targets[@]}"; do
-    if [ ! -d "$target" ]; then
-      log "Creating sample content directory at $target"
-      mkdir -p "$target"
-    fi
+    mkdir -p "$target"
 
-    if [ ! -f "$target/01-foreword.json" ]; then
-      cat <<'JSON' > "$target/01-foreword.json"
+    cat > "$target/01-foreword.json" <<'JSON'
 {
   "slug": "foreword",
   "title": "Foreword: Why Crypto, Why Now",
@@ -95,10 +40,8 @@ ensure_sample_content() {
   ]
 }
 JSON
-    fi
 
-    if [ ! -f "$target/02-bitcoin.json" ]; then
-      cat <<'JSON' > "$target/02-bitcoin.json"
+    cat > "$target/02-bitcoin.json" <<'JSON'
 {
   "slug": "bitcoin",
   "title": "Bitcoin: The Genesis and Relentless Rise",
@@ -111,10 +54,8 @@ JSON
   ]
 }
 JSON
-    fi
 
-    if [ ! -f "$target/03-ethereum.json" ]; then
-      cat <<'JSON' > "$target/03-ethereum.json"
+    cat > "$target/03-ethereum.json" <<'JSON'
 {
   "slug": "ethereum",
   "title": "Ethereum: The World Computer",
@@ -127,10 +68,8 @@ JSON
   ]
 }
 JSON
-    fi
 
-    if [ ! -f "$target/04-algorand.json" ]; then
-      cat <<'JSON' > "$target/04-algorand.json"
+    cat > "$target/04-algorand.json" <<'JSON'
 {
   "slug": "algorand",
   "title": "Algorand: The Green Speed Demon",
@@ -143,40 +82,41 @@ JSON
   ]
 }
 JSON
-    fi
   done
+
+  log "Sample content created"
 }
 
-ensure_next_env() {
-  local file="web/next-env.d.ts"
-
-  if [ ! -f "$file" ]; then
-    log "Creating $file"
-    cat <<'NEXT' > "$file"
-/// <reference types="next" />
-/// <reference types="next/image-types/global" />
-NEXT
-  fi
-}
-
-log "H4C Web build starting"
-log "Working directory: $(pwd)"
+log "H4C Build Script Starting"
+log "Current directory: $(pwd)"
+log "Directory contents:"
 ls -la
 log "Node version: $(node --version)"
 log "npm version: $(npm --version)"
 
-ensure_sample_content
-ensure_next_env
+if [ -d "content/mega_article" ] || [ -d "web/content/mega_article" ]; then
+  log "Content directory exists"
+  ls -la content/mega_article/ 2>/dev/null || true
+  ls -la web/content/mega_article/ 2>/dev/null || true
+else
+  log "Content directory missing, creating sample content..."
+  create_sample_content
+fi
 
-log "Installing repository dependencies"
-run_npm_install "." --include=dev
+log "Installing workspace dependencies from lockfile"
+run_npm_install "."
 
-log "Ensuring TypeScript toolchain is present"
-ensure_workspace_packages typescript @types/react @types/react-dom @types/node
+if [ ! -f "web/next-env.d.ts" ]; then
+  log "Creating web/next-env.d.ts"
+  cat <<'NEXT' > web/next-env.d.ts
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+NEXT
+fi
 
 log "Verifying content accessibility"
-ls -la content/mega_article/ 2>/dev/null || log "No content dir at repo root"
-ls -la web/content/mega_article/ 2>/dev/null || log "No content dir at web workspace"
+ls -la content/mega_article/ 2>/dev/null || echo "No content dir at repo root"
+ls -la web/content/mega_article/ 2>/dev/null || echo "No content dir at web workspace"
 
 log "Building shared workspace"
 npm run build --workspace=@h4c/shared --if-present
@@ -184,7 +124,7 @@ npm run build --workspace=@h4c/shared --if-present
 log "Building web application"
 npm run build --workspace=@h4c/web
 
-log "Listing web build artifacts"
+log "Listing build artifacts"
 ls -la web/.next/ || true
 
-log "H4C Web build complete"
+log "H4C Build Complete"
