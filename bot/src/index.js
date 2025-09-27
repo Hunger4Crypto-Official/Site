@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { db as sqliteDb, improvedDb } from './database/sqlite.js';
 
 import { Env } from './utils/envGuard.js';
 import { logger } from './utils/logger.js';
@@ -119,6 +120,31 @@ client.on('messageCreate', async (message) => {
   }
 
   try {
+  try {
+    await loadSlashCommands(client);
+  } catch (error) {
+    logger.error({ error: String(error) }, 'Failed to register slash commands');
+  }
+
+  try {
+    stopAutoAwards = startAutoAwards(client);
+  } catch (error) {
+    logger.error({ error: String(error) }, 'Failed to start auto-awards scheduler');
+  }
+});
+
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.guild) return;
+  if (!message.content) return;
+
+  let userDoc = null;
+  try {
+    userDoc = await CommunityEngagementService.recordMessage(message);
+  } catch (error) {
+    logger.warn({ error: String(error) }, 'Failed to record community message');
+  }
+
+  try {
     const handled = await commandRegistry.handle(message, userDoc);
     if (handled) return;
   } catch (error) {
@@ -202,6 +228,28 @@ async function shutdown(signal) {
 
   if (client.isReady()) {
     await client.destroy();
+// MEMORY FIX 12: Graceful shutdown
+const gracefulShutdown = async (signal) => {
+  console.log(`${signal} received, cleaning up...`);
+
+  if (improvedDb) {
+    try {
+      await improvedDb.shutdown();
+    } catch (error) {
+      console.error('Improved persistence shutdown failed:', error);
+    }
+  }
+
+  if (sqliteDb) {
+    try {
+      await sqliteDb.flush();
+    } catch (error) {
+      console.error('SQLite flush failed:', error);
+    }
+  }
+
+  if (client) {
+    client.destroy();
   }
 
   if (mongoose.connection.readyState === 1) {
@@ -214,6 +262,31 @@ async function shutdown(signal) {
 
   process.exit(0);
 }
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('uncaughtException', (error) => {
+  logger.error({ error: String(error) }, 'Uncaught exception');
+});
+  const exitTimer = setTimeout(() => process.exit(0), 1000);
+  if (typeof exitTimer.unref === 'function') {
+    exitTimer.unref();
+  }
+};
+
+process.on('SIGTERM', () => {
+  gracefulShutdown('SIGTERM').catch((error) => {
+    console.error('SIGTERM shutdown error:', error);
+    process.exit(1);
+  });
+});
+
+process.on('SIGINT', () => {
+  gracefulShutdown('SIGINT').catch((error) => {
+    console.error('SIGINT shutdown error:', error);
+    process.exit(1);
+  });
+});
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
