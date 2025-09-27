@@ -32,6 +32,7 @@ export const loreDrops = loadJson('lore_drops.json', 'LoreDrops');
 export const quickQuips = loadJson('quick_quips.json', 'QuickQuips');
 export const storyJabs = loadJson('story_jabs.json', 'StoryJabs');
 export const gmResponses = loadJson('gmResponses.json', 'GMResponses');
+export const gnResponses = loadJson('gnResponses.json', 'GNResponses');
 export const cryptoJokes = loadJson('cryptoJokes.json', 'CryptoJokes');
 export const techFacts = loadJson('techCryptoFacts.json', 'TechCryptoFacts');
 export const memeVault = loadJson('memes.json', 'Memes');
