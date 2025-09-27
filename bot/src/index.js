@@ -4,6 +4,7 @@ import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { db as sqliteDb, improvedDb } from './database/sqlite.js';
 
 // MEMORY FIX 1: Limit Node.js memory usage
 if (process.env.NODE_OPTIONS !== '--max-old-space-size=512') {
@@ -146,18 +147,51 @@ client.on('messageCreate', async (message) => {
 });
 
 // MEMORY FIX 12: Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, cleaning up...');
-  
+const gracefulShutdown = async (signal) => {
+  console.log(`${signal} received, cleaning up...`);
+
+  if (improvedDb) {
+    try {
+      await improvedDb.shutdown();
+    } catch (error) {
+      console.error('Improved persistence shutdown failed:', error);
+    }
+  }
+
+  if (sqliteDb) {
+    try {
+      await sqliteDb.flush();
+    } catch (error) {
+      console.error('SQLite flush failed:', error);
+    }
+  }
+
   if (client) {
     client.destroy();
   }
-  
+
   if (mongoose.connection.readyState === 1) {
     await mongoose.disconnect();
   }
-  
-  process.exit(0);
+
+  const exitTimer = setTimeout(() => process.exit(0), 1000);
+  if (typeof exitTimer.unref === 'function') {
+    exitTimer.unref();
+  }
+};
+
+process.on('SIGTERM', () => {
+  gracefulShutdown('SIGTERM').catch((error) => {
+    console.error('SIGTERM shutdown error:', error);
+    process.exit(1);
+  });
+});
+
+process.on('SIGINT', () => {
+  gracefulShutdown('SIGINT').catch((error) => {
+    console.error('SIGINT shutdown error:', error);
+    process.exit(1);
+  });
 });
 
 // MEMORY FIX 13: Error handling without memory leaks
