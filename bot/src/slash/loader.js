@@ -11,6 +11,7 @@ import {
   loreDrops,
   storyJabs,
   gmResponses,
+  gnResponses,
   cryptoJokes,
   techFacts,
   memeVault,
@@ -46,13 +47,7 @@ function buildDefinitions(client) {
       execute: async (interaction) => {
         const mockMessage = { author: interaction.user, channelId: interaction.channelId };
         const result = await CommunityEngagementService.handleGreeting(mockMessage, 'gn');
-        const responses = [
-          'Sleep protocol engaged. Try not to dream about chart lines.',
-          'Logging you off. May your bags inflate overnight.',
-          'Night, legend. Your streak is safe—for now.',
-          'Power nap authorized. Return with alpha.',
-        ];
-        let content = randomFrom(responses) ?? 'gn';
+        let content = randomFrom(gnResponses) ?? 'gn';
 
         if (result?.achievements?.length) {
           const unlocked = result.achievements.map((a) => `**${a.label}**`).join(', ');
