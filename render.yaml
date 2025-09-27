@@ -127,6 +127,14 @@ services:
         value: "false"
       - key: PACT_API_BASE
         value: ""
+      - key: JOKE_DROPS_PER_DAY
+        value: "3"
+      - key: TECH_FACT_DROPS_PER_DAY
+        value: "2"
+      - key: DROP_WINDOW_START_HOUR
+        value: "9"
+      - key: DROP_WINDOW_END_HOUR
+        value: "22"
       - key: REP_V2_TTL_SECS
         value: "900"
       - key: LP_SNAPSHOT_TTL_SECS

@@ -120,6 +120,31 @@ client.on('messageCreate', async (message) => {
   }
 
   try {
+  try {
+    await loadSlashCommands(client);
+  } catch (error) {
+    logger.error({ error: String(error) }, 'Failed to register slash commands');
+  }
+
+  try {
+    stopAutoAwards = startAutoAwards(client);
+  } catch (error) {
+    logger.error({ error: String(error) }, 'Failed to start auto-awards scheduler');
+  }
+});
+
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.guild) return;
+  if (!message.content) return;
+
+  let userDoc = null;
+  try {
+    userDoc = await CommunityEngagementService.recordMessage(message);
+  } catch (error) {
+    logger.warn({ error: String(error) }, 'Failed to record community message');
+  }
+
+  try {
     const handled = await commandRegistry.handle(message, userDoc);
     if (handled) return;
   } catch (error) {
@@ -237,6 +262,12 @@ const gracefulShutdown = async (signal) => {
 
   process.exit(0);
 }
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('uncaughtException', (error) => {
+  logger.error({ error: String(error) }, 'Uncaught exception');
+});
   const exitTimer = setTimeout(() => process.exit(0), 1000);
   if (typeof exitTimer.unref === 'function') {
     exitTimer.unref();
